@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 5e-5
-  target: mmldm.models.transformer_model.MusicMotionTransformer
+  target: unimumo.models.transformer_model.MusicMotionTransformer
   params:
     name: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_small.bin'
     music_key: 'music_code'
@@ -21,7 +21,7 @@ model:
       duration: 10
 
     scheduler_config: # 10000 warmup steps
-      target: mmldm.lr_scheduler.LambdaLinearScheduler
+      target: unimumo.lr_scheduler.LambdaLinearScheduler
       params:
         warm_up_steps: [ 10000 ]
         cycle_lengths: [ 400000 ]
@@ -38,7 +38,7 @@ model:
       eps: 1e-8
 
     text_model_config:
-      target: mmldm.modules.text_conditioner.TextGenerator
+      target: unimumo.modules.text_conditioner.TextGenerator
       params:
         model: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/T5BaseForConditionalGeneration'
         max_length: 64
@@ -52,7 +52,7 @@ data:
     wrap: True
     num_workers: 2
     train:
-      target: mmldm.data.music_motion_text_dataset.MusicMotionTextDataset
+      target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
         split: "train"
         #music_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
@@ -67,7 +67,7 @@ data:
         llama_caption_ratio: 0.3
 
     validation:
-      target: mmldm.data.music_motion_text_dataset.MusicMotionTextDataset
+      target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
         split: "val"
         #music_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
@@ -84,7 +84,7 @@ data:
 lightning:
   callbacks:
     video_logger:
-      target: mmldm.mm_transformer_logger.MusicLogger
+      target: unimumo.mm_transformer_logger.MusicLogger
       params:
         #vqvae_path: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
         music_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'

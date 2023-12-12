@@ -8,9 +8,9 @@ import json
 import os
 from omegaconf import OmegaConf
 import sys
-from mmldm.audio.audiocraft.models.builders import get_compression_model
+from unimumo.audio.audiocraft.models.builders import get_compression_model
 
-from mmldm.util import instantiate_from_config
+from unimumo.util import instantiate_from_config
 
 
 def load_model_from_config(config, ckpt, verbose=False):

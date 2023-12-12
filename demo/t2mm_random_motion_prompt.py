@@ -1,4 +1,4 @@
-from mmldm.util import instantiate_from_config
+from unimumo.util import instantiate_from_config
 from omegaconf import OmegaConf
 import argparse
 import os
@@ -7,13 +7,13 @@ from os.path import join as pjoin
 import soundfile as sf
 import numpy as np
 import codecs as cs
-from mmldm.audio.audiocraft.models.builders import get_compression_model
+from unimumo.audio.audiocraft.models.builders import get_compression_model
 import pandas as pd
 import random
 import json
-from mmldm.motion.motion_process import motion_vec_to_joint
+from unimumo.motion.motion_process import motion_vec_to_joint
 import subprocess
-from mmldm.motion import skel_animation
+from unimumo.motion import skel_animation
 from pytorch_lightning import seed_everything
 
 # use prompts from mu-llama instead of tags

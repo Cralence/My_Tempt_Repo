@@ -1,12 +1,12 @@
 model:
   base_learning_rate: 2e-4
-  target: mmldm.models.motion_vqvae.MM_VQVAE
+  target: unimumo.models.motion_vqvae.MM_VQVAE
   params:
     monitor: "val/rec_loss"
     music_key: "waveform"
     motion_key: "motion"
     lossconfig:
-      target: mmldm.modules.losses.mm_vqvae_loss.MusicMotion_VQVAE_Loss_v3
+      target: unimumo.modules.losses.mm_vqvae_loss.MusicMotion_VQVAE_Loss_v3
       params:
         commitment_loss_weight: 0.02
         motion_weight: 1.0
@@ -34,7 +34,7 @@ data:
     batch_size: 30
     wrap: True
     train:
-      target: mmldm.data.music_motion_dataset_v2.MusicMotionDataset
+      target: unimumo.data.music_motion_dataset_v2.MusicMotionDataset
       params:
         split: "train"
         #music_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all/audios'
@@ -52,7 +52,7 @@ data:
         align: True
 
     validation:
-      target: mmldm.data.music_motion_dataset_v2.MusicMotionDataset
+      target: unimumo.data.music_motion_dataset_v2.MusicMotionDataset
       params:
         split: "val"
         #music_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all/audios'
@@ -73,7 +73,7 @@ data:
 lightning:
   callbacks:
     video_logger:
-      target: mmldm.joint_vae_logger.MusicMotionLogger
+      target: unimumo.joint_vae_logger.MusicMotionLogger
       params:
         batch_frequency: 7000
         max_videos: 4

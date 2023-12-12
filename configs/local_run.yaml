@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 1e-4
-  target: mmldm.models.mm_transformer_v13.MM_Transformer
+  target: unimumo.models.mm_transformer_v13.MM_Transformer
   params:
     name: "facebook/musicgen-small"
     music_key: 'music_code'
@@ -25,7 +25,7 @@ model:
       extend_stride: 18
 
     scheduler_config: # 10000 warmup steps
-      target: mmldm.lr_scheduler.LambdaLinearScheduler
+      target: unimumo.lr_scheduler.LambdaLinearScheduler
       params:
         warm_up_steps: [ 10000 ]
         cycle_lengths: [ 400000 ]
@@ -47,7 +47,7 @@ data:
     batch_size: 2
     wrap: True
     train:
-      target: mmldm.data.music_motion_text_dataset_v3.MusicMotionTextDataset
+      target: unimumo.data.music_motion_text_dataset_v3.MusicMotionTextDataset
       params:
         split: "train"
         motion_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data'
@@ -59,7 +59,7 @@ data:
         vqvae_sr: 32000
 
     validation:
-      target: mmldm.data.music_motion_text_dataset_v3.MusicMotionTextDataset
+      target: unimumo.data.music_motion_text_dataset_v3.MusicMotionTextDataset
       params:
         split: "val"
         motion_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data'
@@ -73,7 +73,7 @@ data:
 lightning:
   callbacks:
     video_logger:
-      target: mmldm.mm_transformer_logger_v2.MusicLogger
+      target: unimumo.mm_transformer_logger_v2.MusicLogger
       params:
         #vqvae_path: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
         music_vqvae_path: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'

@@ -13,7 +13,7 @@ from functools import partial
 from pytorch_lightning import seed_everything
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateMonitor
-from mmldm.util import instantiate_from_config
+from unimumo.util import instantiate_from_config
 
 
 def get_parser(**parser_kwargs):

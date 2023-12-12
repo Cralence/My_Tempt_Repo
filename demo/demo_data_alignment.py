@@ -5,18 +5,18 @@ import codecs as cs
 import numpy as np
 import librosa
 import random
-from mmldm.alignment import visual_beat, interpolation
-from mmldm.motion import motion_process
-from mmldm.motion.motion_process import recover_from_ric, motion_vec_to_joint
+from unimumo.alignment import visual_beat, interpolation
+from unimumo.motion import motion_process
+from unimumo.motion.motion_process import recover_from_ric, motion_vec_to_joint
 from dtw import *
 from omegaconf import OmegaConf
-from mmldm.util import instantiate_from_config
+from unimumo.util import instantiate_from_config
 from pytorch_lightning import seed_everything
 import argparse
 import sys
 import soundfile as sf
 import subprocess
-from mmldm.motion import skel_animation
+from unimumo.motion import skel_animation
 
 def load_model_from_config(config, ckpt, verbose=False):
     model = instantiate_from_config(config.model)

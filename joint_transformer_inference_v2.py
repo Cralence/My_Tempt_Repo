@@ -1,4 +1,4 @@
-from mmldm.util import instantiate_from_config
+from unimumo.util import instantiate_from_config
 from omegaconf import OmegaConf
 import argparse
 import os
@@ -6,15 +6,15 @@ import torch
 from os.path import join as pjoin
 import soundfile as sf
 import librosa
-from mmldm.audio.tools import random_pad_wav, normalize_wav
+from unimumo.audio.tools import random_pad_wav, normalize_wav
 import codecs as cs
-from mmldm.audio.audiocraft.models.builders import get_compression_model
+from unimumo.audio.audiocraft.models.builders import get_compression_model
 import pandas as pd
 import random
 import pytorch_lightning as pl
 import numpy as np
-from mmldm.motion.motion_process import recover_from_ric
-from mmldm.motion import skel_animation
+from unimumo.motion.motion_process import recover_from_ric
+from unimumo.motion import skel_animation
 import subprocess
 
 '''
