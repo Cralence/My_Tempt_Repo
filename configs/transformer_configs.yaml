@@ -91,7 +91,7 @@ lightning:
         #vqvae_path: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
         music_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
         motion_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt'
-        motion_vqvae_config: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_motion_diffusion/configs/motion_vqvae_configs.yaml'
+        motion_vqvae_config: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/My_Tempt_Repo/configs/motion_vqvae_configs.yaml'
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         batch_frequency: 7000
         max_audio: 4
