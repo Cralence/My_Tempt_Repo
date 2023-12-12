@@ -16,9 +16,8 @@ import omegaconf
 import torch
 
 from .encodec import CompressionModel, EncodecModel
-from .lm import LMModel
+from .mm_lm import LMModel
 from .mm_lm import LMModel as MyLMModel
-from .mm_lm_ablation import LMModel_Ablation1, LMModel_Ablation2, LMModel_Ablation3, LMModel_Ablation4, LMModel_Ablation5
 from ..modules.codebooks_patterns import (
     CodebooksPatternProvider,
     DelayedPatternProvider,
@@ -29,17 +28,13 @@ from ..modules.codebooks_patterns import (
 )
 from ..modules.conditioners import (
     BaseConditioner,
-    ChromaStemConditioner,
-    CLAPEmbeddingConditioner,
     ConditionFuser,
     ConditioningProvider,
     LUTConditioner,
     T5Conditioner,
 )
-from .unet import DiffusionUnet
 from .. import quantization as qt
 from ..utils.utils import dict_from_config
-from ..modules.diffusion_schedule import MultiBandProcessor, SampleProcessor
 
 
 def get_quantizer(quantizer: str, cfg: omegaconf.DictConfig, dimension: int) -> qt.BaseQuantizer:
@@ -83,223 +78,6 @@ def get_compression_model(cfg: omegaconf.DictConfig) -> CompressionModel:
                             frame_rate=frame_rate, renormalize=renormalize, **kwargs).to(cfg.device)
     else:
         raise KeyError(f"Unexpected compression model {cfg.compression_model}")
-
-
-def get_lm_model(cfg: omegaconf.DictConfig) -> LMModel:
-    """Instantiate a transformer LM."""
-    if cfg.lm_model == 'transformer_lm':
-        kwargs = dict_from_config(getattr(cfg, 'transformer_lm'))
-        n_q = kwargs['n_q']
-        q_modeling = kwargs.pop('q_modeling', None)
-        codebooks_pattern_cfg = getattr(cfg, 'codebooks_pattern')
-        attribute_dropout = dict_from_config(getattr(cfg, 'attribute_dropout'))
-        cls_free_guidance = dict_from_config(getattr(cfg, 'classifier_free_guidance'))
-        cfg_prob, cfg_coef = cls_free_guidance['training_dropout'], cls_free_guidance['inference_coef']
-        fuser = get_condition_fuser(cfg)
-        condition_provider = get_conditioner_provider(kwargs["dim"], cfg).to(cfg.device)
-        if len(fuser.fuse2cond['cross']) > 0:  # enforce cross-att programmatically
-            kwargs['cross_attention'] = True
-        if codebooks_pattern_cfg.modeling is None:
-            assert q_modeling is not None, \
-                "LM model should either have a codebook pattern defined or transformer_lm.q_modeling"
-            codebooks_pattern_cfg = omegaconf.OmegaConf.create(
-                {'modeling': q_modeling, 'delay': {'delays': list(range(n_q))}}
-            )
-        pattern_provider = get_codebooks_pattern_provider(n_q, codebooks_pattern_cfg)
-        return LMModel(
-            pattern_provider=pattern_provider,
-            condition_provider=condition_provider,
-            fuser=fuser,
-            cfg_dropout=cfg_prob,
-            cfg_coef=cfg_coef,
-            attribute_dropout=attribute_dropout,
-            dtype=getattr(torch, cfg.dtype),
-            device=cfg.device,
-            **kwargs
-        ).to(cfg.device)
-    else:
-        raise KeyError(f"Unexpected LM model {cfg.lm_model}")
-
-
-def get_ablation_1_lm_model(cfg: omegaconf.DictConfig) -> LMModel_Ablation1:
-    """Instantiate a transformer LM."""
-    if cfg.lm_model == 'transformer_lm':
-        kwargs = dict_from_config(getattr(cfg, 'transformer_lm'))
-        n_q = kwargs['n_q']
-        q_modeling = kwargs.pop('q_modeling', None)
-        codebooks_pattern_cfg = getattr(cfg, 'codebooks_pattern')
-        attribute_dropout = dict_from_config(getattr(cfg, 'attribute_dropout'))
-        cls_free_guidance = dict_from_config(getattr(cfg, 'classifier_free_guidance'))
-        cfg_prob, cfg_coef = cls_free_guidance['training_dropout'], cls_free_guidance['inference_coef']
-        fuser = get_condition_fuser(cfg)
-        condition_provider = get_conditioner_provider(kwargs["dim"], cfg).to(cfg.device)
-        if len(fuser.fuse2cond['cross']) > 0:  # enforce cross-att programmatically
-            kwargs['cross_attention'] = True
-        if codebooks_pattern_cfg.modeling is None:
-            assert q_modeling is not None, \
-                "LM model should either have a codebook pattern defined or transformer_lm.q_modeling"
-            codebooks_pattern_cfg = omegaconf.OmegaConf.create(
-                {'modeling': q_modeling, 'delay': {'delays': list(range(n_q))}}
-            )
-        pattern_provider = get_codebooks_pattern_provider(n_q, codebooks_pattern_cfg)
-        return LMModel_Ablation1(
-            pattern_provider=pattern_provider,
-            condition_provider=condition_provider,
-            fuser=fuser,
-            cfg_dropout=cfg_prob,
-            cfg_coef=cfg_coef,
-            attribute_dropout=attribute_dropout,
-            dtype=getattr(torch, cfg.dtype),
-            device=cfg.device,
-            **kwargs
-        ).to(cfg.device)
-    else:
-        raise KeyError(f"Unexpected LM model {cfg.lm_model}")
-
-def get_ablation_2_lm_model(cfg: omegaconf.DictConfig) -> LMModel_Ablation2:
-    """Instantiate a transformer LM."""
-    if cfg.lm_model == 'transformer_lm':
-        kwargs = dict_from_config(getattr(cfg, 'transformer_lm'))
-        n_q = kwargs['n_q']
-        q_modeling = kwargs.pop('q_modeling', None)
-        codebooks_pattern_cfg = getattr(cfg, 'codebooks_pattern')
-        attribute_dropout = dict_from_config(getattr(cfg, 'attribute_dropout'))
-        cls_free_guidance = dict_from_config(getattr(cfg, 'classifier_free_guidance'))
-        cfg_prob, cfg_coef = cls_free_guidance['training_dropout'], cls_free_guidance['inference_coef']
-        fuser = get_condition_fuser(cfg)
-        condition_provider = get_conditioner_provider(kwargs["dim"], cfg).to(cfg.device)
-        if len(fuser.fuse2cond['cross']) > 0:  # enforce cross-att programmatically
-            kwargs['cross_attention'] = True
-        if codebooks_pattern_cfg.modeling is None:
-            assert q_modeling is not None, \
-                "LM model should either have a codebook pattern defined or transformer_lm.q_modeling"
-            codebooks_pattern_cfg = omegaconf.OmegaConf.create(
-                {'modeling': q_modeling, 'delay': {'delays': list(range(n_q))}}
-            )
-        pattern_provider = get_codebooks_pattern_provider(n_q, codebooks_pattern_cfg)
-        return LMModel_Ablation2(
-            pattern_provider=pattern_provider,
-            condition_provider=condition_provider,
-            fuser=fuser,
-            cfg_dropout=cfg_prob,
-            cfg_coef=cfg_coef,
-            attribute_dropout=attribute_dropout,
-            dtype=getattr(torch, cfg.dtype),
-            device=cfg.device,
-            **kwargs
-        ).to(cfg.device)
-    else:
-        raise KeyError(f"Unexpected LM model {cfg.lm_model}")
-
-
-def get_ablation_3_lm_model(cfg: omegaconf.DictConfig) -> LMModel_Ablation3:
-    """Instantiate a transformer LM."""
-    if cfg.lm_model == 'transformer_lm':
-        kwargs = dict_from_config(getattr(cfg, 'transformer_lm'))
-        n_q = kwargs['n_q']
-        q_modeling = kwargs.pop('q_modeling', None)
-        codebooks_pattern_cfg = getattr(cfg, 'codebooks_pattern')
-        attribute_dropout = dict_from_config(getattr(cfg, 'attribute_dropout'))
-        cls_free_guidance = dict_from_config(getattr(cfg, 'classifier_free_guidance'))
-        cfg_prob, cfg_coef = cls_free_guidance['training_dropout'], cls_free_guidance['inference_coef']
-        fuser = get_condition_fuser(cfg)
-        condition_provider = get_conditioner_provider(kwargs["dim"], cfg).to(cfg.device)
-        if len(fuser.fuse2cond['cross']) > 0:  # enforce cross-att programmatically
-            kwargs['cross_attention'] = True
-        if codebooks_pattern_cfg.modeling is None:
-            assert q_modeling is not None, \
-                "LM model should either have a codebook pattern defined or transformer_lm.q_modeling"
-            codebooks_pattern_cfg = omegaconf.OmegaConf.create(
-                {'modeling': q_modeling, 'delay': {'delays': list(range(n_q))}}
-            )
-        pattern_provider = get_codebooks_pattern_provider(n_q, codebooks_pattern_cfg)
-        return LMModel_Ablation3(
-            pattern_provider=pattern_provider,
-            condition_provider=condition_provider,
-            fuser=fuser,
-            cfg_dropout=cfg_prob,
-            cfg_coef=cfg_coef,
-            attribute_dropout=attribute_dropout,
-            dtype=getattr(torch, cfg.dtype),
-            device=cfg.device,
-            **kwargs
-        ).to(cfg.device)
-    else:
-        raise KeyError(f"Unexpected LM model {cfg.lm_model}")
-
-
-
-def get_ablation_4_lm_model(cfg: omegaconf.DictConfig) -> LMModel_Ablation4:
-    """Instantiate a transformer LM."""
-    if cfg.lm_model == 'transformer_lm':
-        kwargs = dict_from_config(getattr(cfg, 'transformer_lm'))
-        n_q = kwargs['n_q']
-        q_modeling = kwargs.pop('q_modeling', None)
-        codebooks_pattern_cfg = getattr(cfg, 'codebooks_pattern')
-        attribute_dropout = dict_from_config(getattr(cfg, 'attribute_dropout'))
-        cls_free_guidance = dict_from_config(getattr(cfg, 'classifier_free_guidance'))
-        cfg_prob, cfg_coef = cls_free_guidance['training_dropout'], cls_free_guidance['inference_coef']
-        fuser = get_condition_fuser(cfg)
-        condition_provider = get_conditioner_provider(kwargs["dim"], cfg).to(cfg.device)
-        if len(fuser.fuse2cond['cross']) > 0:  # enforce cross-att programmatically
-            kwargs['cross_attention'] = True
-        if codebooks_pattern_cfg.modeling is None:
-            assert q_modeling is not None, \
-                "LM model should either have a codebook pattern defined or transformer_lm.q_modeling"
-            codebooks_pattern_cfg = omegaconf.OmegaConf.create(
-                {'modeling': q_modeling, 'delay': {'delays': list(range(n_q))}}
-            )
-        pattern_provider = get_codebooks_pattern_provider(n_q, codebooks_pattern_cfg)
-        return LMModel_Ablation4(
-            pattern_provider=pattern_provider,
-            condition_provider=condition_provider,
-            fuser=fuser,
-            cfg_dropout=cfg_prob,
-            cfg_coef=cfg_coef,
-            attribute_dropout=attribute_dropout,
-            dtype=getattr(torch, cfg.dtype),
-            device=cfg.device,
-            **kwargs
-        ).to(cfg.device)
-    else:
-        raise KeyError(f"Unexpected LM model {cfg.lm_model}")
-
-
-def get_ablation_5_lm_model(cfg: omegaconf.DictConfig) -> LMModel_Ablation5:
-    """Instantiate a transformer LM."""
-    if cfg.lm_model == 'transformer_lm':
-        kwargs = dict_from_config(getattr(cfg, 'transformer_lm'))
-        n_q = kwargs['n_q']
-        q_modeling = kwargs.pop('q_modeling', None)
-        codebooks_pattern_cfg = getattr(cfg, 'codebooks_pattern')
-        attribute_dropout = dict_from_config(getattr(cfg, 'attribute_dropout'))
-        cls_free_guidance = dict_from_config(getattr(cfg, 'classifier_free_guidance'))
-        cfg_prob, cfg_coef = cls_free_guidance['training_dropout'], cls_free_guidance['inference_coef']
-        fuser = get_condition_fuser(cfg)
-        condition_provider = get_conditioner_provider(kwargs["dim"], cfg).to(cfg.device)
-        if len(fuser.fuse2cond['cross']) > 0:  # enforce cross-att programmatically
-            kwargs['cross_attention'] = True
-        if codebooks_pattern_cfg.modeling is None:
-            assert q_modeling is not None, \
-                "LM model should either have a codebook pattern defined or transformer_lm.q_modeling"
-            codebooks_pattern_cfg = omegaconf.OmegaConf.create(
-                {'modeling': q_modeling, 'delay': {'delays': list(range(n_q))}}
-            )
-        pattern_provider = get_codebooks_pattern_provider(n_q, codebooks_pattern_cfg)
-        return LMModel_Ablation5(
-            pattern_provider=pattern_provider,
-            condition_provider=condition_provider,
-            fuser=fuser,
-            cfg_dropout=cfg_prob,
-            cfg_coef=cfg_coef,
-            attribute_dropout=attribute_dropout,
-            dtype=getattr(torch, cfg.dtype),
-            device=cfg.device,
-            **kwargs
-        ).to(cfg.device)
-    else:
-        raise KeyError(f"Unexpected LM model {cfg.lm_model}")
-
 
 
 def get_mm_lm_model(cfg: omegaconf.DictConfig) -> LMModel:
@@ -356,19 +134,6 @@ def get_conditioner_provider(output_dim: int, cfg: omegaconf.DictConfig) -> Cond
             conditioners[str(cond)] = T5Conditioner(output_dim=output_dim, device=device, **model_args)
         elif model_type == 'lut':
             conditioners[str(cond)] = LUTConditioner(output_dim=output_dim, **model_args)
-        elif model_type == 'chroma_stem':
-            conditioners[str(cond)] = ChromaStemConditioner(
-                output_dim=output_dim,
-                duration=duration,
-                device=device,
-                **model_args
-            )
-        elif model_type == 'clap':
-            conditioners[str(cond)] = CLAPEmbeddingConditioner(
-                output_dim=output_dim,
-                device=device,
-                **model_args
-            )
         else:
             raise ValueError(f"Unrecognized conditioning model: {model_type}")
     conditioner = ConditioningProvider(conditioners, device=device, **condition_provider_args)
@@ -424,25 +189,6 @@ def get_debug_compression_model(device='cpu', sample_rate: int = 32000):
         encoder, decoder, quantizer,
         frame_rate=frame_rate, sample_rate=sample_rate, channels=1).to(device)
     return compression_model.eval()
-
-
-def get_diffusion_model(cfg: omegaconf.DictConfig):
-    # TODO Find a way to infer the channels from dset
-    channels = cfg.channels
-    num_steps = cfg.schedule.num_steps
-    return DiffusionUnet(
-            chin=channels, num_steps=num_steps, **cfg.diffusion_unet)
-
-
-def get_processor(cfg, sample_rate: int = 24000):
-    sample_processor = SampleProcessor()
-    if cfg.use:
-        kw = dict(cfg)
-        kw.pop('use')
-        kw.pop('name')
-        if cfg.name == "multi_band_processor":
-            sample_processor = MultiBandProcessor(sample_rate=sample_rate, **kw)
-    return sample_processor
 
 
 def get_debug_lm_model(device='cpu'):

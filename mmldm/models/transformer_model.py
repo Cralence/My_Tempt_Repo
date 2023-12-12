@@ -71,16 +71,13 @@ class MusicMotionTransformer(pl.LightningModule):
                 p.requires_grad = False
         if self.stage == 'train_caption':
             print('In training caption stage!')
-            assert mm_ckpt is not None
+            assert mm_ckpt is not None, "The pretrained music motion model is not provided"
             pretrained_sd = torch.load(mm_ckpt, map_location='cpu')['state_dict']
-
             self.model.load_state_dict(pretrained_sd)
-
             # freeze music motion model
             for p in self.model.parameters():
                 p.requires_grad = False
 
-        self.extend_stride = generation_params.pop('extend_stride')
         self.duration = generation_params.pop('duration')
         self.feature_frame_rate = feature_frame_rate
         self.sample_rate = 32000
