@@ -1,4 +1,5 @@
 import os
+import sys
 from os.path import join as pjoin
 import random
 import typing as tp
@@ -214,6 +215,7 @@ class MusicLogger(Callback):
                 music_vqvae = get_compression_model(cfg)
                 music_vqvae.load_state_dict(pkg['best_state'])
 
+                print("!!!!!!!!!!!!!!!!!!!", self.motion_vqvae_config.model, file=sys.stderr)
                 motion_vqvae = instantiate_from_config(self.motion_vqvae_config.model)
                 pl_sd = torch.load(self.motion_vqvae_path, map_location='cpu')
                 motion_vqvae.load_state_dict(pl_sd['state_dict'])
