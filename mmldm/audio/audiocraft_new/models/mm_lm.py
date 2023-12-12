@@ -146,7 +146,7 @@ class LMModel(StreamingModule):
                  hidden_scale: int = 4, norm: str = 'layer_norm', norm_first: bool = False,
                  emb_lr: tp.Optional[float] = None, bias_proj: bool = True,
                  weight_init: tp.Optional[str] = None, depthwise_init: tp.Optional[str] = None,
-                 zero_bias_init: bool = False, cfg_dropout: float = 0, cfg_coef: float = 1.0,
+                 zero_bias_init: bool = False, cfg_dropout: float = 0.0, cfg_coef: float = 1.0,
                  attribute_dropout: tp.Dict[str, tp.Dict[str, float]] = {}, two_step_cfg: bool = False,
                  **kwargs):
         super().__init__()

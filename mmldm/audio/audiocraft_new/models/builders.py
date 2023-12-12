@@ -17,7 +17,6 @@ import torch
 
 from .encodec import CompressionModel, EncodecModel
 from .mm_lm import LMModel
-from .mm_lm import LMModel as MyLMModel
 from ..modules.codebooks_patterns import (
     CodebooksPatternProvider,
     DelayedPatternProvider,
@@ -101,7 +100,7 @@ def get_mm_lm_model(cfg: omegaconf.DictConfig) -> LMModel:
                 {'modeling': q_modeling, 'delay': {'delays': list(range(n_q))}}
             )
         pattern_provider = get_codebooks_pattern_provider(n_q, codebooks_pattern_cfg)
-        return MyLMModel(
+        return LMModel(
             pattern_provider=pattern_provider,
             condition_provider=condition_provider,
             fuser=fuser,
@@ -202,7 +201,7 @@ def get_debug_lm_model(device='cpu'):
     fuser = ConditionFuser(
         {'cross': ['description'], 'prepend': [],
          'sum': [], 'input_interpolate': []})
-    lm = MyLMModel(
+    lm = LMModel(
         pattern, condition_provider, fuser,
         n_q=4, card=2048, dim=dim, num_heads=4, custom=True, num_layers=2,
         cross_attention=True, causal=False)
