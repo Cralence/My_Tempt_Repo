@@ -178,7 +178,6 @@ class MusicLogger(Callback):
                 f"ffmpeg -i {gt_motion_path} -i {gt_music_path} -c copy {gt_video_path}", shell=True
             )
 
-    @rank_zero_only
     def log_video(
         self, pl_module: LightningModule, batch: Any, batch_idx: int, split: str
     ) -> None:
