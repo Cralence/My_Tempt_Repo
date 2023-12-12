@@ -1,0 +1,93 @@
+model:
+  base_learning_rate: 1e-4
+  target: mmldm.models.mm_transformer_v13.MM_Transformer
+  params:
+    name: "facebook/musicgen-small"
+    music_key: 'music_code'
+    motion_key: 'motion_code'
+    text_cond_key: 'text'
+    motion_weight: 0.1
+    length_single_modal: 100
+    frame_rate: 50
+    max_duration: 10
+
+    autocast: True
+    autocast_dtype: 'float16'
+
+    generation_params:
+      use_sampling: True
+      temp: 1.
+      top_k: 250
+      top_p: 0.0
+      cfg_coef: 3.0
+      two_step_cfg: False
+      duration: 2
+      extend_stride: 18
+
+    scheduler_config: # 10000 warmup steps
+      target: mmldm.lr_scheduler.LambdaLinearScheduler
+      params:
+        warm_up_steps: [ 10000 ]
+        cycle_lengths: [ 400000 ]
+        f_start: [ 1.e-6 ]
+        f_max: [ 1. ]
+        f_min: [ 0. ]
+
+    optimization_config:
+      eager_sync: True
+      max_norm: 1.0
+      learning_rate: 1e-4
+      betas: [0.9, 0.95]
+      weight_decay: 0.1
+      eps: 1e-8
+
+data:
+  target: joint_transformer_train.DataModuleFromConfig
+  params:
+    batch_size: 2
+    wrap: True
+    train:
+      target: mmldm.data.music_motion_text_dataset_v3.MusicMotionTextDataset
+      params:
+        split: "train"
+        motion_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data'
+        meta_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all'
+        music_code_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all/music4all_codes'
+        motion_code_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data/aligned_motion_code'
+        duration: 2
+        dropout_prob: 0.6
+        vqvae_sr: 32000
+
+    validation:
+      target: mmldm.data.music_motion_text_dataset_v3.MusicMotionTextDataset
+      params:
+        split: "val"
+        motion_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data'
+        meta_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all'
+        music_code_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all/music4all_codes'
+        motion_code_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data/aligned_motion_code'
+        duration: 2
+        dropout_prob: 0.6
+        vqvae_sr: 32000
+
+lightning:
+  callbacks:
+    video_logger:
+      target: mmldm.mm_transformer_logger_v2.MusicLogger
+      params:
+        #vqvae_path: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
+        music_vqvae_path: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
+        motion_vqvae_path: 'D:/local_documentation/deep_learning/ChuangGan/weight/vqvae_weight.ckpt'
+        motion_vqvae_config: 'D:/local_documentation/deep_learning/ChuangGan/music_motion_diffusion/configs/mm_vqvae_v6.yaml'
+        motion_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data'
+        batch_frequency: 7000
+        max_audio: 0
+        increase_log_steps: True
+        duration: 4
+        sr: 32000
+        log_epoch_cycle: 21
+        conditional_guidance_scale: 2.5
+  trainer:
+    benchmark: True
+    devices: 1
+    # strategy: ddp_find_unused_parameters_true

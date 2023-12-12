@@ -1,0 +1,63 @@
+ssh watson-zf
+zfchen
+ssh aimos-yining
+ssh nplfen01
+1123,beHAPPY
+
+scp: /home/zfchen/aimos/LMCGnngn/yanghan
+data: /gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_motion_diffusion/
+zfchen@150.136.223.210
+https://docs.cci.rpi.edu/status/
+
+TODO:
+1, solve the female vocalist problem in text description and text generation, and the 'their' problem in motion description.
+2, maybe remove some of the not moving motions from humanml3d
+3, use new music data, and filter music4all data.
+4, use llm to rewrite text descriptions. Make more text descriptions.
+
+satori:
+srun --gres=gpu:1 -N 1 --mem=100G --time 4:00:00 -I --pty /bin/bash
+
+npl:
+srun --gres=gpu:8 --cpus-per-task=4 -N 1 --mem=500G --time 06:00:00 --pty bash
+srun --job-name yhhh --gres=gpu:1 --cpus-per-task=4 -N 1 --mem=100G --time 06:00:00 --pty
+
+dcs:
+source ~/.bashrc_dcs
+salloc -N 1 --gres=gpu:6 -t 180
+
+synchronize code:
+scp -P 12345 -r ./music_motion_diffusion/mmldm/audio/audiocraft_new/models/builders.py zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/audio/audiocraft_new/models
+scp -P 12345 ./music_motion_diffusion/mmldm/audio/audiocraft_new/models/mm_lm_ablation.py zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/audio/audiocraft_new/models/
+scp -P 12345 ./music_motion_diffusion/mmldm/data/music_motion_text_dataset_ablation.py zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/data
+scp -P 12333 ./music_motion_diffusion/configs/mm_transformer_v15.yaml haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/configs
+scp -P 12345 ./music_motion_diffusion/mmldm/models/mm_transformer_ablation_5.py zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/models
+scp -P 12333 ./music_motion_diffusion/demo/demo_text_generation.py haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion
+scp ./music_motion_diffusion/test_mm_trans_motion2text_humanml3d.py yiningh@satori-login-001.mit.edu:/nobackup/users/yiningh/yh/music_motion_diffusion
+
+scp -P 12333 ./music_motion_diffusion/configs/mm_transformer_v7.yaml haoyu@150.136.223.210:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/configs
+scp -P 12333 ./music_motion_diffusion/mmldm/models/mm_transformer_v7.py haoyu@150.136.223.210:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/models
+
+
+download dir:
+scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/samples ./
+scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/2023-11-09T22-06-15_mm_transformer_v14/video_log/ ./
+scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/2023-11-15T21-15-37_mm_transformer_ablation_5/video_log/ ./
+scp -r yiningh@satori-login-001.mit.edu:/nobackup/users/yiningh/yh/music_dance/submission/music_motion_vae_logs/2023-11-06T15-02-19_mm_transformer_v14/video_log ./
+scp -r yiningh@satori-login-001.mit.edu:/nobackup/users/yiningh/yh/music_dance/submission/music_motion_vae_logs/2023-09-10T09-50-14_mm_vqvae_v13/video_log ./
+
+scp -P 12333 -r haoyu@150.136.223.210:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/2023-10-12T13-05-51_mm_transformer_v7/video_log/ ./
+
+
+download file:
+scp -P 12345 -r zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/log.txt ./
+
+
+download tensorboard:
+scp -P 12345 -r zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/music_motion_vae_logs/2023-11-01T16-07-53_mm_vqvae_v21/tensorboard/ ./
+scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/2023-11-15T21-15-37_mm_transformer_ablation_5/tensorboard/ ./
+scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/mm_transformer_v15/tensorboard/ ./
+scp -P 12345 -r zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/mm_trans_v4/tensorboard/ ./
+
+scp -P 12333 -r haoyu@150.136.223.210:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/2023-10-12T13-05-51_mm_transformer_v7/tensorboard/ ./
+scp -r mc@129.213.146.32:/home/ubuntu/LMCG/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/2023-10-12T13-05-51_mm_transformer_v7/tensorboard/ ./

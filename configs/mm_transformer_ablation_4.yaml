@@ -1,0 +1,111 @@
+model:
+  base_learning_rate: 5e-5
+  target: mmldm.models.mm_transformer_ablation_4.MM_Transformer
+  params:
+    name: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_small.bin'
+    music_key: 'music_code'
+    motion_key: 'motion_code'
+    text_cond_key: 'text'
+    motion_weight: 0.1
+    length_single_modal: 500
+    frame_rate: 50
+
+    autocast: False
+    autocast_dtype: 'float16'
+
+    monitor: "val/loss"
+
+    generation_params:
+      use_sampling: True
+      temp: 1.
+      top_k: 250
+      top_p: 0.0
+      cfg_coef: 3.0
+      two_step_cfg: False
+      duration: 10
+      extend_stride: 18
+
+    scheduler_config: # 10000 warmup steps
+      target: mmldm.lr_scheduler.LambdaLinearScheduler
+      params:
+        warm_up_steps: [ 10000 ]
+        cycle_lengths: [ 400000 ]
+        f_start: [ 1.e-6 ]
+        f_max: [ 1. ]
+        f_min: [ 0. ]
+
+    optimization_config:
+      eager_sync: True
+      max_norm: 1.0
+      learning_rate: 5e-5
+      betas: [0.9, 0.95]
+      weight_decay: 0.1
+      eps: 1e-8
+
+    text_model_config:
+      target: mmldm.modules.text_conditioner.TextGenerator
+      params:
+        model: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/T5BaseForConditionalGeneration'
+        max_length: 64
+        context_dim: 1024
+        self_dim: 768
+
+data:
+  target: joint_transformer_train.DataModuleFromConfig
+  params:
+    batch_size: 3
+    wrap: True
+    num_workers: 2
+    train:
+      target: mmldm.data.music_motion_text_dataset_v8.MusicMotionTextDataset
+      params:
+        split: "train"
+        #music_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
+        #meta_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
+        motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
+        meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
+        music_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_codes'
+        motion_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data/aligned_motion_code_enlarged_new'
+        duration: 10
+        dropout_prob: 0.6
+        vqvae_sr: 32000
+        llama_caption_ratio: 0.3
+
+    validation:
+      target: mmldm.data.music_motion_text_dataset_v8.MusicMotionTextDataset
+      params:
+        split: "val"
+        #music_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
+        #meta_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
+        motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
+        meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
+        music_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_codes'
+        motion_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data/aligned_motion_code_enlarged_new'
+        duration: 10
+        dropout_prob: 0.6
+        vqvae_sr: 32000
+        llama_caption_ratio: 0.3
+
+lightning:
+  callbacks:
+    video_logger:
+      target: mmldm.mm_transformer_logger_v3.MusicLogger
+      params:
+        #vqvae_path: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
+        music_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
+        motion_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt'
+        motion_vqvae_config: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_motion_diffusion/configs/mm_vqvae_v6.yaml'
+        motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
+        batch_frequency: 7000
+        max_audio: 4
+        increase_log_steps: True
+        duration: 10
+        sr: 32000
+        log_epoch_cycle: 21
+        conditional_guidance_scale: 3.0
+  trainer:
+    benchmark: True
+    devices: 6
+    num_nodes: 8
+    strategy: ddp
+    # strategy: ddp_find_unused_parameters_true
