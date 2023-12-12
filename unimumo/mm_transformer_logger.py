@@ -281,7 +281,7 @@ class MusicLogger(Callback):
     def on_train_batch_end(
             self, trainer: Trainer, pl_module: LightningModule, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
     ) -> None:
-        if not self.disabled and pl_module.current_epoch % self.epoch_freq == 0:
+        if not self.disabled and pl_module.current_epoch % self.epoch_freq == 0 and pl_module.global_rank == 0:
             self.log_video(pl_module, batch, batch_idx, split="train")
 
         if batch_idx == 0 and pl_module.global_rank == 0:
