@@ -619,15 +619,13 @@ class ConditioningProvider(nn.Module):
 
         output = {}
         text = self._collate_text(inputs)
-        wavs = self._collate_wavs(inputs)
-        joint_embeds = self._collate_joint_embeds(inputs)
 
-        assert set(text.keys() | wavs.keys() | joint_embeds.keys()).issubset(set(self.conditioners.keys())), (
+        assert set(text.keys()).issubset(set(self.conditioners.keys())), (
             f"Got an unexpected attribute! Expected {self.conditioners.keys()}, ",
-            f"got {text.keys(), wavs.keys(), joint_embeds.keys()}"
+            f"got {text.keys()}"
         )
 
-        for attribute, batch in chain(text.items(), wavs.items(), joint_embeds.items()):
+        for attribute, batch in text.items():
             output[attribute] = self.conditioners[attribute].tokenize(batch, device)
         return output
 
