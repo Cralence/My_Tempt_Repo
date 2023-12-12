@@ -282,7 +282,7 @@ class MusicMotionTransformer(pl.LightningModule):
         ) -> tp.Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, tp.List[str]]:
         attributes = self._prepare_tokens_and_attributes(batch[self.text_cond_key])
 
-        music_gen, motion_gen = self._generate_tokens(attributes, duration=duration, prompt_tokens=None,
+        music_gen, motion_gen = self._generate_tokens(attributes, duration=duration,
                                                       temperature=temperature,
                                                       conditional_guidance_scale=conditional_guidance_scale)
 
