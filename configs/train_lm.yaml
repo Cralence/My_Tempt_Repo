@@ -94,7 +94,7 @@ lightning:
         disabled: false
   trainer:
     benchmark: True
-    devices: 8
+    devices: 1
     num_nodes: 1
-    strategy: ddp
+    #strategy: ddp
     # strategy: ddp_find_unused_parameters_true
