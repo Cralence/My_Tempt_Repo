@@ -87,6 +87,7 @@ lightning:
         motion_vqvae_config_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/final_version_2/My_Tempt_Repo/configs/motion_vqvae_configs.yaml'
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         epoch_frequency: 10
+        batch_frequency: 2000
         max_video_per_generation: 4
         duration: 10
         sr: 32000

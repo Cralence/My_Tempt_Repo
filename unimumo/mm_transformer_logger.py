@@ -24,8 +24,8 @@ from unimumo.motion.motion_process import recover_from_ric
 class MusicLogger(Callback):
     def __init__(
         self, music_vqvae_path: str, motion_vqvae_config_path: str, motion_vqvae_path: str, motion_dir: str,
-        motion_fps: int = 20, epoch_frequency: int = 10, max_video_per_generation: int = 4,
-        duration: float = 10., sr: int = 32000, max_video_logged: int = 60,
+        motion_fps: int = 20, epoch_frequency: int = 10, batch_frequency: int = 2000,
+        max_video_per_generation: int = 4, duration: float = 10., sr: int = 32000, max_video_logged: int = 60,
         conditional_guidance_scale: tp.Optional[float] = None, disabled: bool = False
     ):
         super().__init__()
@@ -51,6 +51,7 @@ class MusicLogger(Callback):
 
         # about logging frequency and logging number
         self.epoch_freq = epoch_frequency
+        self.batch_freq = batch_frequency
         self.max_videos_per_generation = max_video_per_generation
         self.max_videos_logged = max_video_logged
 
@@ -177,12 +178,14 @@ class MusicLogger(Callback):
                 f"ffmpeg -i {gt_motion_path} -i {gt_music_path} -c copy {gt_video_path}", shell=True
             )
 
+    @rank_zero_only
     def log_video(
         self, pl_module: LightningModule, batch: Any, batch_idx: int, split: str
     ) -> None:
-        if (hasattr(pl_module, "generate_sample") and
-                callable(pl_module.generate_sample) and
-                self.max_videos_per_generation > 0):
+        if hasattr(pl_module, "generate_sample") and \
+                callable(pl_module.generate_sample) and \
+                batch_idx % self.batch_freq == 0 and \
+                self.max_videos_per_generation > 0:
             print(f'Log videos on epoch {pl_module.current_epoch}')
 
             is_train = pl_module.training
@@ -279,12 +282,12 @@ class MusicLogger(Callback):
                 pl_module.train()
 
     def on_train_batch_end(
-            self, trainer: Trainer, pl_module: LightningModule, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
+        self, trainer: Trainer, pl_module: LightningModule, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
     ) -> None:
-        if not self.disabled and pl_module.current_epoch % self.epoch_freq == 0 and pl_module.global_rank == 0:
+        if not self.disabled and pl_module.current_epoch % self.epoch_freq == 0:
             self.log_video(pl_module, batch, batch_idx, split="train")
 
-        if batch_idx == 0 and pl_module.global_rank == 0:
+        if batch_idx == 0:
             model_size = torch.cuda.max_memory_allocated(device=None)
             for _ in range(30):
                 model_size /= 2
