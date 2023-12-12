@@ -56,7 +56,7 @@ data:
     train:
       target: mmldm.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
-        split: "train"
+        split: "val"
         #music_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
         #meta_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
@@ -103,6 +103,6 @@ lightning:
   trainer:
     benchmark: True
     devices: 6
-    num_nodes: 8
+    num_nodes: 1
     strategy: ddp
     # strategy: ddp_find_unused_parameters_true
