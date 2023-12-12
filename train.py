@@ -432,7 +432,7 @@ if __name__ == "__main__":
         # add callback which sets up log directory
         default_callbacks_cfg = {
             "setup_callback": {
-                "target": "joint_transformer_train.SetupCallback",
+                "target": "train.SetupCallback",
                 "params": {
                     "resume": opt.resume,
                     "now": now,
@@ -444,7 +444,7 @@ if __name__ == "__main__":
                 }
             },
             "learning_rate_logger": {
-                "target": "joint_transformer_train.LearningRateMonitor",
+                "target": "train.LearningRateMonitor",
                 "params": {
                     "logging_interval": "step",
                     # "log_momentum": True
