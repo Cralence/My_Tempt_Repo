@@ -1,24 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
-"""
-Utility functions to load from the checkpoints.
-Each checkpoint is a torch.saved dict with the following keys:
-- 'xp.cfg': the hydra config as dumped during training. This should be used
-    to rebuild the object using the audiocraft.models.builders functions,
-- 'model_best_state': a readily loadable best state for the model, including
-    the conditioner. The model obtained from `xp.cfg` should be compatible
-    with this state dict. In the case of a LM, the encodec model would not be
-    bundled along but instead provided separately.
-
-Those functions also support loading from a remote location with the Torch Hub API.
-They also support overriding some parameters, in particular the device and dtype
-of the returned model.
-"""
-
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 import typing as tp
@@ -109,12 +88,12 @@ def load_mm_lm_model(file_or_url_or_id: tp.Union[Path, str], device='cpu', cache
     _delete_param(cfg, 'conditioners.args.merge_text_conditions_p')
     _delete_param(cfg, 'conditioners.args.drop_desc_p')
 
-    # set to use our own attention mask
+    # set to use our own attention mask instead of the default causal attention mask
     cfg.transformer_lm.causal = False
 
     model = builders.get_mm_lm_model(cfg)
 
-    # load part of the pretrained weight
+    # load part of the pretrained weight that is included in our model
     pretrained_dict = pkg['best_state']
     my_model_dict = model.state_dict()
     new_dict = {k: v for k, v in pretrained_dict.items() if k in my_model_dict.keys()}

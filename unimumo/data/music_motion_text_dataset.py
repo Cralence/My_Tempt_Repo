@@ -13,7 +13,7 @@ import json
 
 class MusicMotionTextDataset(Dataset):
     def __init__(
-        self, split, motion_dir, meta_dir,
+        self, split, music_meta_dir, motion_meta_dir,
         music_code_dir, motion_code_dir,
         duration=10,
         vqvae_sr=32000,
@@ -22,77 +22,41 @@ class MusicMotionTextDataset(Dataset):
         ignore_file_name='music4all_ignore.txt',
         llama_caption_ratio=0.3
     ):
-
-        self.motion_dir = motion_dir
-        self.meta_dir = meta_dir
+        # all data paths
+        self.motion_meta_dir = motion_meta_dir
+        self.music_meta_dir = music_meta_dir
         self.music_code_dir = music_code_dir
         self.motion_code_dir = motion_code_dir
-        self.split = split
 
+        # settings about data loading
+        self.split = split
+        self.duration = duration
+        self.vqvae_sr = vqvae_sr
+        self.music_target_length = int(duration * 50)
+        self.dropout_prob = dropout_prob
+        self.llama_caption_ratio = llama_caption_ratio
+
+        # all data lists
         self.music_data = []
         self.motion_data = []
-        self.music_ignore = []
+        self.music_ignore_list = []
 
         self.humanml3d = []
         self.aist = []
         self.dancedb = []
-        self.duration = duration
-        self.vqvae_sr = vqvae_sr
-        self.music_target_length = int(duration * 50)
-        self.text_df = pd.read_csv(pjoin(self.meta_dir, 'text_prompt.csv'), index_col=0)
-        self.dropout_prob = dropout_prob
 
-        with open(pjoin(self.meta_dir, 'music4all_captions.json'), 'r') as caption_fd:
+        # load data related to text descriptions
+        # load metadata of music4all
+        self.text_df = pd.read_csv(pjoin(self.music_meta_dir, 'text_prompt.csv'), index_col=0)
+        # load mu-llama generated text descriptions
+        with open(pjoin(self.music_meta_dir, 'music4all_captions.json'), 'r') as caption_fd:
             self.llama_music_caption = json.load(caption_fd)
-        self.llama_caption_ratio = llama_caption_ratio
-
-        # load motion mean and std for normalization
-        self.mean = np.load(pjoin(self.motion_dir, 'Mean.npy'))
-        self.std = np.load(pjoin(self.motion_dir, 'Std.npy'))
-
-        # load all paired motion codes
-        self.motion_data = os.listdir(self.motion_code_dir)
-        self.motion_data = ['.'.join(s.split('.')[:-1]) for s in self.motion_data]  # remove the .pth at the end
-        music_with_paired_motion = list(set([s.split('_!motion_code!_')[0] for s in self.motion_data]))
-        print(f"Total number of motion {len(self.motion_data)}")
-        print(f'Total number of music with paired motion data {len(music_with_paired_motion)}')
-
-        # load motion filenames
-        with cs.open(pjoin(self.motion_dir, f'humanml3d_{self.split}.txt'), "r") as f:
-            for line in f.readlines():
-                self.humanml3d.append(line.strip())
-        with cs.open(pjoin(self.motion_dir, f'aist_{self.split}.txt'), "r") as f:
-            for line in f.readlines():
-                self.aist.append(line.strip())
-        with cs.open(pjoin(self.motion_dir, f'dancedb_{self.split}.txt'), "r") as f:
-            for line in f.readlines():
-                self.dancedb.append(line.strip())
-        print(f'Humanml3d size: {len(self.humanml3d)}, aist size: {len(self.aist)}, dancedb size: {len(self.dancedb)}')
-
-        # load music filenames
-        with cs.open(pjoin(self.meta_dir, ignore_file_name), "r") as f:
-            for line in f.readlines():
-                self.music_ignore.append(line.strip())
-        with cs.open(pjoin(self.meta_dir, f'{music_dataset_name}_{self.split}.txt'), "r") as f:
-            for line in f.readlines():
-                if line.strip() in self.music_ignore:
-                    continue
-                if not os.path.exists(pjoin(self.music_code_dir, line.strip() + '.pth')):
-                    continue
-                if not line.strip() in self.llama_music_caption.keys():
-                    continue
-                if not line.strip() in music_with_paired_motion:
-                    continue
-                self.music_data.append(line.strip())
-        print(f'Total number of music in {split} set: {len(self.music_data)}')
-
         # load humanml3d text descriptions
-        humanml3d_text_dir = pjoin(self.motion_dir, 'humanml3d_text_description')
-        descriptions = os.listdir(humanml3d_text_dir)
-
+        humanml3d_text_dir = pjoin(self.motion_meta_dir, 'humanml3d_text_description')
+        humanml3d_descriptions = os.listdir(humanml3d_text_dir)
         self.humanml3d_text = {}
-        for desc_txt in descriptions:
-            with open(pjoin(self.motion_dir, 'humanml3d_text_description', desc_txt), 'r', encoding='UTF-8') as f:
+        for desc_txt in humanml3d_descriptions:
+            with open(pjoin(self.motion_meta_dir, 'humanml3d_text_description', desc_txt), 'r', encoding='UTF-8') as f:
                 texts = []
                 lines = f.readlines()
                 for line in lines:
@@ -101,8 +65,7 @@ class MusicMotionTextDataset(Dataset):
                         text = text[:-1]
                     texts.append(text)
                 self.humanml3d_text[desc_txt.split('.')[0]] = texts
-
-        # genre map for aist
+        # genre mapping for aist
         self.aist_genre_map = {
             'gBR': 'break',
             'gPO': 'pop',
@@ -116,8 +79,45 @@ class MusicMotionTextDataset(Dataset):
             'gJB': 'ballet jazz'
         }
 
-    def inv_transform(self, data):
-        return data * self.std + self.mean
+        # load motion mean and std for normalization
+        self.mean = np.load(pjoin(self.motion_meta_dir, 'Mean.npy'))
+        self.std = np.load(pjoin(self.motion_meta_dir, 'Std.npy'))
+
+        # load all paired motion codes
+        self.motion_data = os.listdir(self.motion_code_dir)
+        self.motion_data = ['.'.join(s.split('.')[:-1]) for s in self.motion_data]  # remove the .pth at the end
+        music_with_paired_motion = list(set([s.split('_!motion_code!_')[0] for s in self.motion_data]))  # find all music that are paired with motion
+        print(f"Total number of motion {len(self.motion_data)}")
+        print(f'Total number of music with paired motion data {len(music_with_paired_motion)}')
+
+        # load motion filenames
+        with cs.open(pjoin(self.motion_meta_dir, f'humanml3d_{self.split}.txt'), "r") as f:
+            for line in f.readlines():
+                self.humanml3d.append(line.strip())
+        with cs.open(pjoin(self.motion_meta_dir, f'aist_{self.split}.txt'), "r") as f:
+            for line in f.readlines():
+                self.aist.append(line.strip())
+        with cs.open(pjoin(self.motion_meta_dir, f'dancedb_{self.split}.txt'), "r") as f:
+            for line in f.readlines():
+                self.dancedb.append(line.strip())
+        print(f'Humanml3d size: {len(self.humanml3d)}, aist size: {len(self.aist)}, dancedb size: {len(self.dancedb)}')
+
+        # load music filenames
+        with cs.open(pjoin(self.music_meta_dir, ignore_file_name), "r") as f:
+            for line in f.readlines():
+                self.music_ignore_list.append(line.strip())
+        with cs.open(pjoin(self.music_meta_dir, f'{music_dataset_name}_{self.split}.txt'), "r") as f:
+            for line in f.readlines():
+                if line.strip() in self.music_ignore_list:
+                    continue
+                if not os.path.exists(pjoin(self.music_code_dir, line.strip() + '.pth')):
+                    continue
+                if line.strip() not in self.llama_music_caption.keys():
+                    continue
+                if line.strip() not in music_with_paired_motion:
+                    continue
+                self.music_data.append(line.strip())
+        print(f'Total number of music in {split} set: {len(self.music_data)}')
 
     def __len__(self):
         return len(self.music_data)
@@ -130,7 +130,7 @@ class MusicMotionTextDataset(Dataset):
 
         # load motion token
         selection = [s for s in self.motion_data if s[:len(music_id)] == music_id]  # motion name that starts with music_id
-        motion_name = random.choice(selection)
+        motion_name = random.choice(selection)  # randomly choose a paired motion
         motion_name = motion_name.split('_!motion_code!_')[1]
         motion_code = torch.load(pjoin(self.motion_code_dir, f'{music_id}_!motion_code!_{motion_name}.pth'))  # 4, T
 
@@ -241,26 +241,26 @@ class MusicMotionTextDataset(Dataset):
             music_text_prompt = ', '.join(text_prompt) + '.'
 
         # construct motion text prompt
-        dance_description = None
+        motion_description = None
         if motion_name in self.dancedb:
             feeling = motion_name.split('_')[1]  # the feeling of the dance
             desc_choices = [f'This is a {feeling} dance.', f'The dance is {feeling}.']
-            dance_description = random.choice(desc_choices)
+            motion_description = random.choice(desc_choices)
         elif motion_name in self.aist:
             genre_id = motion_name.split('_')[0]
             genre = self.aist_genre_map[genre_id]
             desc_choices = [f'The genre of the dance is {genre}.', f'The style of the dance is {genre}.',
                             f'This is a {genre} style dance.']
-            dance_description = random.choice(desc_choices)
+            motion_description = random.choice(desc_choices)
         elif motion_name in self.humanml3d:
             text_choice = self.humanml3d_text[motion_name]
             desc = random.choice(text_choice)
             desc_choices = [f'The motion is that {desc}.', f'The dance is that {desc}.']
-            dance_description = random.choice(desc_choices)
+            motion_description = random.choice(desc_choices)
         else:
             ValueError()
 
-        text_prompt = music_text_prompt.capitalize() + ' ' + dance_description.capitalize()
+        text_prompt = music_text_prompt.capitalize() + ' ' + motion_description.capitalize()
 
         return {
             'motion_code': motion_code,  # (4, 500)

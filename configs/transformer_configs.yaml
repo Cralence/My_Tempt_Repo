@@ -38,7 +38,7 @@ model:
       eps: 1e-8
 
     text_model_config:
-      target: unimumo.modules.text_conditioner.TextGenerator
+      target: unimumo.models.text_generation_model.TextGenerator
       params:
         model: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/T5BaseForConditionalGeneration'
         max_length: 64
@@ -55,10 +55,8 @@ data:
       target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
         split: "train"
-        #music_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
-        #meta_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
-        motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
-        meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
+        music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
+        motion_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         music_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_codes'
         motion_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data/aligned_motion_code_enlarged_new'
         duration: 10
@@ -70,10 +68,8 @@ data:
       target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
         split: "val"
-        #music_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
-        #meta_dir: "../../../../../local_documentation/deep_learning/ChuangGan/fma_medium/"
-        motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
-        meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
+        music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
+        motion_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         music_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_codes'
         motion_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data/aligned_motion_code_enlarged_new'
         duration: 10
@@ -86,18 +82,16 @@ lightning:
     video_logger:
       target: unimumo.mm_transformer_logger.MusicLogger
       params:
-        #vqvae_path: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
         music_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
         motion_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt'
-        motion_vqvae_config: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/My_Tempt_Repo/configs/motion_vqvae_configs.yaml'
+        motion_vqvae_config_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/My_Tempt_Repo/configs/motion_vqvae_configs.yaml'
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
-        batch_frequency: 7000
-        max_audio: 4
-        increase_log_steps: True
+        epoch_frequency: 10
+        max_video_per_generation: 4
         duration: 10
         sr: 32000
-        log_epoch_cycle: 21
-        conditional_guidance_scale: 3.0
+        max_video_logged: 120
+        disabled: false
   trainer:
     benchmark: True
     devices: 6

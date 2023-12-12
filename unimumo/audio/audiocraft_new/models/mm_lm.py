@@ -8,7 +8,7 @@ import torch
 from torch import nn
 
 from ..utils import utils
-from ..modules.streaming import StreamingModule, State
+from ..modules.streaming import StreamingModule
 from ..modules.transformer import StreamingTransformer, create_norm_fn
 from ..modules.conditioners import (
     ConditionFuser,
@@ -20,6 +20,7 @@ from ..modules.conditioners import (
 )
 from ..modules.codebooks_patterns import CodebooksPatternProvider
 from ..modules.activations import get_activation_fn
+
 
 ConditionTensors = tp.Dict[str, ConditionType]
 CFGConditions = tp.Union[ConditionTensors, tp.Tuple[ConditionTensors, ConditionTensors]]
@@ -43,10 +44,12 @@ def get_init_fn(method: str, input_dim: int, init_depth: tp.Optional[int] = None
         raise ValueError("Unsupported layer initialization method")
 
 
-def init_layer(m: nn.Module,
-               method: str,
-               init_depth: tp.Optional[int] = None,
-               zero_bias_init: bool = False):
+def init_layer(
+    m: nn.Module,
+    method: str,
+    init_depth: tp.Optional[int] = None,
+    zero_bias_init: bool = False
+):
     if isinstance(m, nn.Linear):
         init_fn = get_init_fn(method, m.in_features, init_depth=init_depth)
         if m.weight.device.type == 'cpu' and m.weight.dtype == torch.float16:
@@ -364,8 +367,7 @@ class LMModel(StreamingModule):
 
         # sample music tokne
         music_logits = music_logits.permute(0, 1, 3, 2)  # [B, K, card, T]
-        music_logits = music_logits[..., -1]  # [B x K x card]
-
+        music_logits = music_logits[..., -1]  # [B, K, card]
         # Apply softmax for sampling if temp > 0. Else, do greedy sampling to avoid zero division error.
         if use_sampling and temp > 0.0:
             probs = torch.softmax(music_logits / temp, dim=-1)
@@ -380,8 +382,7 @@ class LMModel(StreamingModule):
 
         # sample music tokne
         motion_logits = motion_logits.permute(0, 1, 3, 2)  # [B, K, card, T]
-        motion_logits = motion_logits[..., -1]  # [B x K x card]
-
+        motion_logits = motion_logits[..., -1]  # [B, K, card]
         # Apply softmax for sampling if temp > 0. Else, do greedy sampling to avoid zero division error.
         if use_sampling and temp > 0.0:
             probs = torch.softmax(motion_logits / temp, dim=-1)

@@ -1,14 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
-"""
-All the functions to build the relevant models and modules
-from the Hydra config.
-"""
-
 import typing as tp
 
 import unimumo.audio.audiocraft_new as audiocraft

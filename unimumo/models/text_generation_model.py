@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
+from typing import Sequence, List
+
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from transformers.modeling_outputs import BaseModelOutput
-from typing import Sequence, List
 
 
 class TextGenerator(nn.Module):

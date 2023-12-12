@@ -1,12 +1,11 @@
 import typing as tp
 import warnings
-
 import flashy.distrib
 import torch
 import pytorch_lightning as pl
 import torch.nn.functional as F
-
 from torch.optim.lr_scheduler import LambdaLR
+
 from unimumo.util import instantiate_from_config
 from unimumo.audio.audiocraft_new.models.mm_lm import LMModel, ConditionTensors
 from unimumo.audio.audiocraft_new.models.builders import get_debug_lm_model
@@ -65,8 +64,8 @@ class MusicMotionTransformer(pl.LightningModule):
         assert stage is None or stage in ['train_music_motion', 'train_caption']
         self.stage = stage
         if self.stage == 'train_music_motion':
-            # freeze text model
             print('In training music motion stage!')
+            # freeze text model
             for p in self.text_model.parameters():
                 p.requires_grad = False
         if self.stage == 'train_caption':
@@ -104,7 +103,6 @@ class MusicMotionTransformer(pl.LightningModule):
                 device = 'cuda'
             else:
                 device = 'cpu'
-
         print(f'Load lm and conditioner to {device}')
 
         if name == 'debug':
@@ -131,7 +129,7 @@ class MusicMotionTransformer(pl.LightningModule):
     ):
         music_code, motion_code, text_cond = batch[self.music_key], batch[self.motion_key], batch[self.text_cond_key]
 
-        if self.stage == 'train_music_motion':  # train the music motion model
+        if self.stage == 'train_music_motion':  # train the music motion lm
             text_condition = self.prepare_text_condition(text_cond)
 
             music_output, motion_output = self.model.compute_predictions(
@@ -233,7 +231,7 @@ class MusicMotionTransformer(pl.LightningModule):
 
             self.log_dict(log_dict, prog_bar=True, logger=True, on_step=True, on_epoch=True)
 
-        else:  # train the text generation model
+        else:
             batch_size = len(text_cond)
 
             # use null condition for music motion network
@@ -327,8 +325,8 @@ class MusicMotionTransformer(pl.LightningModule):
             return motion_gen
 
     def generate_captions(
-            self,
-            batch: tp.Dict[str, tp.Union[torch.LongTensor, tp.List[str]]]
+        self,
+        batch: tp.Dict[str, tp.Union[torch.LongTensor, tp.List[str]]]
     ) -> tp.Tuple[tp.List[str], torch.LongTensor, torch.LongTensor]:
         music_code, motion_code, text_cond = batch[self.music_key], batch[self.motion_key], batch[self.text_cond_key]
         batch_size = len(text_cond)

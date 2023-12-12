@@ -1,12 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-"""Compression models or wrapper around existing models.
-Also defines the main interface that a model must follow to be usable as an audio tokenizer.
-"""
-
 from abc import ABC, abstractmethod
 import logging
 import math
