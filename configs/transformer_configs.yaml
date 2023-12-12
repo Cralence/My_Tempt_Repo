@@ -18,9 +18,7 @@ model:
       top_k: 250
       top_p: 0.0
       cfg_coef: 3.0
-      two_step_cfg: False
       duration: 10
-      extend_stride: 18
 
     scheduler_config: # 10000 warmup steps
       target: mmldm.lr_scheduler.LambdaLinearScheduler

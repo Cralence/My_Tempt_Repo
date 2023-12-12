@@ -1,12 +1,5 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
 from dataclasses import dataclass
 from functools import partial
-import logging
 import math
 import typing as tp
 from tqdm import tqdm
@@ -28,22 +21,11 @@ from ..modules.conditioners import (
 from ..modules.codebooks_patterns import CodebooksPatternProvider
 from ..modules.activations import get_activation_fn
 
-
 ConditionTensors = tp.Dict[str, ConditionType]
 CFGConditions = tp.Union[ConditionTensors, tp.Tuple[ConditionTensors, ConditionTensors]]
 
 
 def get_init_fn(method: str, input_dim: int, init_depth: tp.Optional[int] = None):
-    """LM layer initialization.
-    Inspired from xlformers: https://github.com/fairinternal/xlformers
-
-    Args:
-        method (str): Method name for init function. Valid options are:
-            'gaussian', 'uniform'.
-        input_dim (int): Input dimension of the initialized module.
-        init_depth (int, optional): Optional init depth value used to rescale
-            the standard deviation if defined.
-    """
     # Compute std
     std = 1 / math.sqrt(input_dim)
     # Rescale with depth
@@ -65,15 +47,6 @@ def init_layer(m: nn.Module,
                method: str,
                init_depth: tp.Optional[int] = None,
                zero_bias_init: bool = False):
-    """Wrapper around ``get_init_fn`` for proper initialization of LM modules.
-
-    Args:
-        m (nn.Module): Module to initialize.
-        method (str): Method name for the init function.
-        init_depth (int, optional): Optional init depth value used to rescale
-            the standard deviation if defined.
-        zero_bias_init (bool): Whether to initialize the bias to 0 or not.
-    """
     if isinstance(m, nn.Linear):
         init_fn = get_init_fn(method, m.in_features, init_depth=init_depth)
         if m.weight.device.type == 'cpu' and m.weight.dtype == torch.float16:
@@ -95,8 +68,6 @@ def init_layer(m: nn.Module,
 
 
 class ScaledEmbedding(nn.Embedding):
-    """Boost learning rate for embeddings (with `scale`).
-    """
     def __init__(self, *args, lr=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.lr = lr
@@ -110,45 +81,21 @@ class ScaledEmbedding(nn.Embedding):
 
 @dataclass
 class LMOutput:
-    # The logits are already re-aligned with the input codes
-    # hence no extra shift is required, e.g. when computing CE
     logits: torch.Tensor  # [B, K, T, card]
     mask: torch.Tensor  # [B, K, T]
 
 
 class LMModel(StreamingModule):
-    """Transformer-based language model on multiple streams of codes.
-
-    Args:
-        pattern_provider (CodebooksPatternProvider): Pattern provider for codebook interleaving.
-        condition_provider (MusicConditioningProvider): Conditioning provider from metadata.
-        fuser (ConditionFuser): Fuser handling the fusing of conditions with language model input.
-        n_q (int): Number of parallel streams to model.
-        card (int): Cardinality, vocabulary size.
-        dim (int): Dimension of the transformer encoder.
-        num_heads (int): Number of heads for the transformer encoder.
-        hidden_scale (int): Scale for hidden feed forward dimension of the transformer encoder.
-        norm (str): Normalization method.
-        norm_first (bool): Use pre-norm instead of post-norm.
-        emb_lr (float, optional): Embedding-specific learning rate.
-        bias_proj (bool): Use bias for output projections.
-        weight_init (str, optional): Method for weight initialization.
-        depthwise_init (str, optional): Method for depthwise weight initialization.
-        zero_bias_init (bool): If true and bias in Linears, initialize bias to zeros.
-        cfg_dropout (float): Classifier-free guidance dropout.
-        cfg_coef (float): Classifier-free guidance coefficient.
-        attribute_dropout (dict): Attribute dropout probabilities.
-        two_step_cfg (bool): Whether to run classifier free-guidance with 2 distinct steps.
-        **kwargs: Additional parameters for the transformer encoder.
-    """
-    def __init__(self, pattern_provider: CodebooksPatternProvider, condition_provider: ConditioningProvider,
-                 fuser: ConditionFuser, n_q: int = 8, card: int = 1024, dim: int = 128, num_heads: int = 8,
-                 hidden_scale: int = 4, norm: str = 'layer_norm', norm_first: bool = False,
-                 emb_lr: tp.Optional[float] = None, bias_proj: bool = True,
-                 weight_init: tp.Optional[str] = None, depthwise_init: tp.Optional[str] = None,
-                 zero_bias_init: bool = False, cfg_dropout: float = 0.0, cfg_coef: float = 1.0,
-                 attribute_dropout: tp.Dict[str, tp.Dict[str, float]] = {}, two_step_cfg: bool = False,
-                 **kwargs):
+    def __init__(
+        self, pattern_provider: CodebooksPatternProvider, condition_provider: ConditioningProvider,
+        fuser: ConditionFuser, n_q: int = 8, card: int = 1024, dim: int = 128, num_heads: int = 8,
+        hidden_scale: int = 4, norm: str = 'layer_norm', norm_first: bool = False,
+        emb_lr: tp.Optional[float] = None, bias_proj: bool = True,
+        weight_init: tp.Optional[str] = None, depthwise_init: tp.Optional[str] = None,
+        zero_bias_init: bool = False, cfg_dropout: float = 0.0, cfg_coef: float = 1.0,
+        attribute_dropout: tp.Dict[str, tp.Dict[str, float]] = {}, two_step_cfg: bool = False,
+        **kwargs
+    ):
         super().__init__()
         self.cfg_coef = cfg_coef
         self.cfg_dropout = ClassifierFreeGuidanceDropout(p=cfg_dropout)
@@ -178,7 +125,9 @@ class LMModel(StreamingModule):
         if norm_first:
             self.out_norm = create_norm_fn(norm, dim)
 
+        # classification head for music
         self.linears = nn.ModuleList([nn.Linear(dim, self.card, bias=bias_proj) for _ in range(n_q)])
+        # classification head for motion
         self.motion_linears = nn.ModuleList([nn.Linear(dim, self.card, bias=bias_proj) for _ in range(n_q)])
 
         self._init_weights(weight_init, depthwise_init, zero_bias_init)
@@ -186,15 +135,6 @@ class LMModel(StreamingModule):
         self.__dict__['_fsdp'] = None
 
     def _init_weights(self, weight_init: tp.Optional[str], depthwise_init: tp.Optional[str], zero_bias_init: bool):
-        """Initialization of the transformer module weights.
-
-        Args:
-            weight_init (str, optional): Weight initialization strategy. See ``get_init_fn`` for valid options.
-            depthwise_init (str, optional): Depthwise initialization strategy. The following options are valid:
-                'current' where the depth corresponds to the current layer index or 'global' where the total number
-                of layer is used as depth. If not set, no depthwise initialization strategy is used.
-            zero_bias_init (bool): Whether to initialize bias to zero or not.
-        """
         assert depthwise_init is None or depthwise_init in ['current', 'global']
         assert depthwise_init is None or weight_init is not None, \
             "If 'depthwise_init' is defined, a 'weight_init' method should be provided."
@@ -234,30 +174,18 @@ class LMModel(StreamingModule):
     def num_codebooks(self) -> int:
         return self.n_q
 
-    def forward(self,
-                sequence: torch.Tensor,
-                conditions: tp.List[ConditioningAttributes],
-                src_mask: tp.Optional[torch.Tensor] = None,
-                condition_tensors: tp.Optional[ConditionTensors] = None,
-                return_last_layer: bool = False) -> tp.Union[tp.Tuple[torch.Tensor, torch.Tensor], torch.Tensor] :
-        """Apply language model on sequence and conditions.
-        Given a tensor of sequence of shape [B, K, S] with K the number of codebooks and
-        S the sequence steps, return the logits with shape [B, card, K, S].
-
-        Args:
-            indices (torch.Tensor): Indices of the codes to model.
-            conditions (list of ConditioningAttributes): Conditions to use when modeling
-                the given codes. Note that when evaluating multiple time with the same conditioning
-                you should pre-compute those and pass them as `condition_tensors`.
-            condition_tensors (dict[str, ConditionType], optional): Pre-computed conditioning
-                tensors, see `conditions`.
-        Returns:
-            torch.Tensor: Logits.
-        """
+    def forward(
+        self,
+        sequence: torch.LongTensor,
+        conditions: tp.List[ConditioningAttributes],
+        src_mask: tp.Optional[torch.Tensor] = None,
+        condition_tensors: tp.Optional[ConditionTensors] = None,
+        return_last_layer: bool = False
+    ) -> tp.Union[tp.Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         B, K, S = sequence.shape
         assert K == self.num_codebooks, "Sequence shape must match the specified number of codebooks"
 
-        input_ = sum([self.emb[k](sequence[:, k]) for k in range(K)])  # b, s, dim
+        input_ = sum([self.emb[k](sequence[:, k]) for k in range(K)])  # [B, S, dim]
 
         if condition_tensors is None:
             assert not self._is_streaming, "Conditions tensors should be precomputed when streaming."
@@ -276,12 +204,14 @@ class LMModel(StreamingModule):
 
         input_, cross_attention_input = self.fuser(input_, condition_tensors)
 
-        out = self.transformer(input_, separate_positional_encoding=True, cross_attention_src=cross_attention_input, src_mask=src_mask)
+        out = self.transformer(
+            input_, separate_positional_encoding=True, cross_attention_src=cross_attention_input, src_mask=src_mask
+        )
         if self.out_norm:
             out = self.out_norm(out)
 
         if return_last_layer:
-            return out  # [B, S, D]
+            return out  # [B, S, dim]
 
         music_logits = torch.stack([self.linears[k](out[:, :S // 2]) for k in range(K)], dim=1)  # [B, K, S/2, card]
         motion_logits = torch.stack([self.motion_linears[k](out[:, S // 2:]) for k in range(K)], dim=1)   # [B, K, S/2, card]
@@ -291,39 +221,22 @@ class LMModel(StreamingModule):
             music_logits = music_logits[:, :, -S:]
             motion_logits = motion_logits[:, :, -S:]
 
-        return music_logits, motion_logits  # [B, K, S, card]
+        return music_logits, motion_logits
 
     def compute_predictions(
-            self, music_codes: torch.Tensor,
-            motion_codes: torch.Tensor,
-            conditions: tp.List[ConditioningAttributes],
-            condition_tensors: tp.Optional[ConditionTensors] = None) -> tp.Tuple[LMOutput, LMOutput]:
-        """Given an input tensor of codes [B, K, T] and list of conditions, runs the model
-        forward using the specified codes interleaving pattern.
-
-        Args:
-            codes (torch.Tensor): Input codes of shape [B, K, T] with B the batch size,
-                K the number of codebooks and T the number of timesteps.
-            conditions (list of ConditioningAttributes): conditionings to use when modeling
-                the given codes. Note that when evaluating multiple time with the same conditioning
-                you should pre-compute those and pass them as `condition_tensors`.
-            condition_tensors (dict[str, ConditionType], optional): pre-computed conditioning
-                tensors, see `conditions`.
-        Returns:
-            LMOutput: Language model outputs
-                logits (torch.Tensor) of shape [B, K, T, card] corresponding to the provided codes,
-                    i.e. the first item corresponds to logits to predict the first code, meaning that
-                    no additional shifting of codes and logits is required.
-                mask (torch.Tensor) of shape [B, K, T], mask over valid and invalid positions.
-                    Given the specified interleaving strategies, parts of the logits and codes should
-                    not be considered as valid predictions because of invalid context.
-        """
+        self,
+        music_codes: torch.LongTensor,
+        motion_codes: torch.LongTensor,
+        conditions: tp.List[ConditioningAttributes],
+        condition_tensors: tp.Optional[ConditionTensors] = None
+    ) -> tp.Tuple[LMOutput, LMOutput]:
         # prepare input sequence
         B, K, T_music = music_codes.shape
         T_motion = motion_codes.shape[-1]
         assert T_music == T_motion
         music_codes = music_codes.contiguous()
         motion_codes = motion_codes.contiguous()
+
         # map codes [B, K, T] into pattern sequence [B, K, S] using special_token_id for masked tokens
         music_pattern = self.pattern_provider.get_pattern(T_music)
         motion_pattern = self.pattern_provider.get_pattern(T_motion)
@@ -333,13 +246,18 @@ class LMModel(StreamingModule):
         motion_sequence_codes, _, _ = motion_pattern.build_pattern_sequence(
             motion_codes, self.motion_special_token_id, keep_only_valid_steps=True
         )
+
+        # concat music sequence and motion sequence in time dimension
         sequence_codes = torch.cat((music_sequence_codes, motion_sequence_codes), dim=-1)
 
         # prepare self-attention mask
         self_attn_map = self.get_self_attn_mask(music_sequence_codes.shape[-1], motion_sequence_codes.shape[-1])
 
         # apply model on pattern sequence
-        music_logits, motion_logits = self(sequence_codes, conditions, src_mask=self_attn_map, condition_tensors=condition_tensors)  # [B, K, S, card]
+        music_logits, motion_logits = self(
+            sequence_codes, conditions, src_mask=self_attn_map, condition_tensors=condition_tensors
+        )  # both [B, K, S, card]
+
         # map back the logits on pattern sequence to logits on original codes: [B, K, S, card] -> [B, K, T, card]
         # and provide the corresponding mask over invalid positions of tokens
         music_logits = music_logits.permute(0, 3, 1, 2)  # [B, card, K, S]
@@ -359,16 +277,19 @@ class LMModel(StreamingModule):
         return LMOutput(music_logits, music_logits_mask), LMOutput(motion_logits, motion_logits_mask)
 
     def get_music_motion_context(
-            self, music_codes: torch.Tensor,
-            motion_codes: torch.Tensor,
-            conditions: tp.List[ConditioningAttributes],
-            condition_tensors: tp.Optional[ConditionTensors] = None) -> torch.Tensor:
+        self,
+        music_codes: torch.LongTensor,
+        motion_codes: torch.LongTensor,
+        conditions: tp.List[ConditioningAttributes],
+        condition_tensors: tp.Optional[ConditionTensors] = None
+    ) -> torch.Tensor:
         # prepare input sequence
         B, K, T_music = music_codes.shape
         T_motion = motion_codes.shape[-1]
         assert T_music == T_motion
         music_codes = music_codes.contiguous()
         motion_codes = motion_codes.contiguous()
+
         # map codes [B, K, T] into pattern sequence [B, K, S] using special_token_id for masked tokens
         music_pattern = self.pattern_provider.get_pattern(T_music)
         motion_pattern = self.pattern_provider.get_pattern(T_motion)
@@ -378,14 +299,18 @@ class LMModel(StreamingModule):
         motion_sequence_codes, _, _ = motion_pattern.build_pattern_sequence(
             motion_codes, self.motion_special_token_id, keep_only_valid_steps=True
         )
+
+        # concat music sequence and motion sequence in time dimension
         sequence_codes = torch.cat((music_sequence_codes, motion_sequence_codes), dim=-1)
 
         # prepare self-attention mask
         self_attn_map = self.get_self_attn_mask(music_sequence_codes.shape[-1], motion_sequence_codes.shape[-1])
 
         # apply model on pattern sequence
-        music_motion_context = self(sequence_codes, conditions, src_mask=self_attn_map,
-                                    condition_tensors=condition_tensors, return_last_layer=True)  # [B, S, D]
+        music_motion_context = self(
+            sequence_codes, conditions, src_mask=self_attn_map,
+            condition_tensors=condition_tensors, return_last_layer=True
+        )  # [B, S, dim]
 
         return music_motion_context
 
@@ -401,69 +326,41 @@ class LMModel(StreamingModule):
         mask = torch.where(mask, 0., float('-inf'))
         return mask
 
-    def _sample_next_token(self,
-                           music_sequence: torch.Tensor,
-                           motion_sequence: torch.Tensor,
-                           cfg_conditions: CFGConditions,
-                           unconditional_state: State,
-                           use_sampling: bool = False,
-                           temp: float = 1.0,
-                           top_k: int = 0,
-                           top_p: float = 0.0,
-                           cfg_coef: tp.Optional[float] = None,
-                           two_step_cfg: tp.Optional[bool] = None) -> tp.Tuple[torch.Tensor, torch.Tensor]:
-        """Sample next token from the model given a sequence and a set of conditions. The model supports
-        multiple sampling strategies (greedy sampling, softmax, top-k, top-p...).
-
-        Args:
-            sequence (torch.Tensor): Current sequence of shape [B, K, S]
-                with K corresponding to the number of codebooks and S the number of sequence steps.
-                S = 1 in streaming mode, except for the first step that contains a bigger prompt.
-            condition_tensors (dict[str, ConditionType): Set of conditions. If CFG is used,
-                should be twice the batch size, being the concatenation of the conditions + null conditions.
-            use_sampling (bool): Whether to use a sampling strategy or not.
-            temp (float): Sampling temperature.
-            top_k (int): K for "top-k" sampling.
-            top_p (float): P for "top-p" sampling.
-            cfg_coef (float, optional): classifier free guidance coefficient
-        Returns:
-            next_token (torch.Tensor): Next token tensor of shape [B, K, 1].
-        """
+    def _sample_next_token(
+        self,
+        music_sequence: torch.LongTensor,
+        motion_sequence: torch.LongTensor,
+        cfg_conditions: CFGConditions,
+        use_sampling: bool = False,
+        temp: float = 1.0,
+        top_k: int = 0,
+        top_p: float = 0.0,
+        cfg_coef: tp.Optional[float] = None,
+    ) -> tp.Tuple[torch.Tensor, torch.Tensor]:
         B = music_sequence.shape[0]
         cfg_coef = self.cfg_coef if cfg_coef is None else cfg_coef
-        two_step_cfg = self.two_step_cfg if two_step_cfg is None else two_step_cfg
 
         sequence = torch.cat((music_sequence, motion_sequence), dim=-1)
         src_mask = self.get_self_attn_mask(music_sequence.shape[-1], motion_sequence.shape[-1])
 
-        if two_step_cfg and cfg_conditions != {}:
-            assert isinstance(cfg_conditions, tuple), type(cfg_conditions)
-            condition_tensors, null_condition_tensors = cfg_conditions
-            music_cond_logits, motion_cond_logits = self(sequence, conditions=[], condition_tensors=condition_tensors, src_mask=src_mask)
-            state = self.get_streaming_state()
-            self.set_streaming_state(unconditional_state)
-            music_uncond_logits, motion_uncond_logits = self(sequence, conditions=[], condition_tensors=null_condition_tensors, src_mask=src_mask)
-            unconditional_state.update(self.get_streaming_state())
-            self.set_streaming_state(state)
-            music_logits = music_uncond_logits + (music_cond_logits - music_uncond_logits) * self.cfg_coef
-            motion_logits = motion_uncond_logits + (motion_cond_logits - motion_uncond_logits) * self.cfg_coef
+        assert isinstance(cfg_conditions, dict)
+        condition_tensors = cfg_conditions
+        if condition_tensors:
+            # Preparing for CFG, predicting both conditional and unconditional logits.
+            sequence = torch.cat([sequence, sequence], dim=0)
+
+        music_all_logits, motion_all_logits = self(
+            sequence, conditions=[], condition_tensors=condition_tensors, src_mask=src_mask
+        )
+
+        if condition_tensors:
+            music_cond_logits, music_uncond_logits = music_all_logits.split(B, dim=0)  # [B, K, T, card]
+            motion_cond_logits, motion_uncond_logits = motion_all_logits.split(B, dim=0)  # [B, K, T, card]
+            music_logits = music_uncond_logits + (music_cond_logits - music_uncond_logits) * cfg_coef
+            motion_logits = motion_uncond_logits + (motion_cond_logits - motion_uncond_logits) * cfg_coef
         else:
-            assert isinstance(cfg_conditions, dict)
-            condition_tensors = cfg_conditions
-            if condition_tensors:
-                # Preparing for CFG, predicting both conditional and unconditional logits.
-                sequence = torch.cat([sequence, sequence], dim=0)
-            music_all_logits, motion_all_logits = self(
-                sequence,
-                conditions=[], condition_tensors=condition_tensors, src_mask=src_mask)
-            if condition_tensors:
-                music_cond_logits, music_uncond_logits = music_all_logits.split(B, dim=0)  # [B, K, T, card]
-                motion_cond_logits, motion_uncond_logits = motion_all_logits.split(B, dim=0)  # [B, K, T, card]
-                music_logits = music_uncond_logits + (music_cond_logits - music_uncond_logits) * cfg_coef
-                motion_logits = motion_uncond_logits + (motion_cond_logits - motion_uncond_logits) * cfg_coef
-            else:
-                music_logits = music_all_logits
-                motion_logits = motion_all_logits
+            music_logits = music_all_logits
+            motion_logits = motion_all_logits
 
         # sample music tokne
         music_logits = music_logits.permute(0, 1, 3, 2)  # [B, K, card, T]
@@ -501,21 +398,18 @@ class LMModel(StreamingModule):
 
     @torch.no_grad()
     def generate(
-            self,
-            conditions: tp.List[ConditioningAttributes] = [],
-            music_code: tp.Optional[torch.LongTensor] = None,
-            motion_code: tp.Optional[torch.LongTensor] = None,
-            num_samples: tp.Optional[int] = None,
-            max_gen_len: int = 256,
-            use_sampling: bool = True,
-            temp: float = 1.0,
-            top_k: int = 250,
-            top_p: float = 0.0,
-            cfg_coef: tp.Optional[float] = None,
-            two_step_cfg: tp.Optional[bool] = None,
-            remove_prompts: bool = False,
-            check: bool = True,
-            callback: tp.Optional[tp.Callable[[int, int], None]] = None
+        self,
+        conditions: tp.List[ConditioningAttributes] = [],
+        music_code: tp.Optional[torch.LongTensor] = None,
+        motion_code: tp.Optional[torch.LongTensor] = None,
+        num_samples: tp.Optional[int] = None,
+        max_gen_len: int = 256,
+        use_sampling: bool = True,
+        temp: float = 1.0,
+        top_k: int = 250,
+        top_p: float = 0.0,
+        cfg_coef: tp.Optional[float] = None,
+        check: bool = True,
     ) -> tp.Tuple[torch.LongTensor, torch.LongTensor]:
         assert not self.training, "generation shouldn't be used in training mode."
         first_param = next(iter(self.parameters()))
@@ -533,45 +427,25 @@ class LMModel(StreamingModule):
             possible_num_samples.append(1)
         assert [x == possible_num_samples[0] for x in possible_num_samples], "Inconsistent inputs shapes"
         num_samples = possible_num_samples[0]
+        assert num_samples > 0
 
-        # below we create set of conditions: one conditional and one unconditional
-        # to do that we merge the regular condition together with the null condition
-        # we then do 1 forward pass instead of 2.
-        # the reason for that is two-fold:
-        # 1. it is about x2 faster than doing 2 forward passes
-        # 2. avoid the streaming API treating the 2 passes as part of different time steps
-        # We also support doing two different passes, in particular to ensure that
-        # the padding structure is exactly the same between train and test.
-        # With a batch size of 1, this can be slower though.
+        # get classifier-free guidance conditions
         cfg_conditions: CFGConditions
-        two_step_cfg = self.two_step_cfg if two_step_cfg is None else two_step_cfg
         if conditions:
             null_conditions = ClassifierFreeGuidanceDropout(p=1.0)(conditions)
-            if two_step_cfg:
-                cfg_conditions = (
-                    self.condition_provider(self.condition_provider.tokenize(conditions, device)),
-                    self.condition_provider(self.condition_provider.tokenize(null_conditions, device)),
-                )
-            else:
-                conditions = conditions + null_conditions
-                tokenized = self.condition_provider.tokenize(conditions, device)
-                cfg_conditions = self.condition_provider(tokenized)
+            conditions = conditions + null_conditions
+            tokenized = self.condition_provider.tokenize(conditions, device)
+            cfg_conditions = self.condition_provider(tokenized)
         else:
             cfg_conditions = {}
 
-        assert num_samples > 0
-        prompt = torch.zeros((num_samples, self.num_codebooks, 0), dtype=torch.long, device=device)
-
-        B, K, T = prompt.shape
-        start_offset = T
-        assert start_offset < max_gen_len
+        B, K = num_samples, self.num_codebooks
 
         pattern = self.pattern_provider.get_pattern(max_gen_len)
         # this token is used as default value for codes that are not generated yet
         unknown_token = -1
-
         # we generate codes up to the max_gen_len that will be mapped to the pattern sequence
-        # replace the unknown code with provided code if necessary
+        # and replace the unknown code with provided code if necessary
         if music_code is None:
             music_gen_codes = torch.full((B, K, max_gen_len), unknown_token, dtype=torch.long, device=device)
         else:
@@ -581,26 +455,17 @@ class LMModel(StreamingModule):
         else:
             motion_gen_codes = motion_code
         assert music_gen_codes.shape[-1] == motion_gen_codes.shape[-1], "music code and motion code should be in equal time dimension"
-        # filling the gen_codes with the prompt if needed
-        music_gen_codes[..., :start_offset] = prompt
-        motion_gen_codes[..., :start_offset] = prompt
         # create the gen_sequence with proper interleaving from the pattern: [B, K, S]
         music_gen_sequence, _, music_mask = pattern.build_pattern_sequence(music_gen_codes, self.music_special_token_id)   # gen_sequence: padded with self.music_special_token_id
         motion_gen_sequence, _, motion_mask = pattern.build_pattern_sequence(motion_gen_codes, self.motion_special_token_id)   # gen_sequence: padded with self.motion_special_token_id
-        # retrieve the start_offset in the sequence:
-        # it is the first sequence step that contains the `start_offset` timestep
-        start_offset_sequence = pattern.get_first_step_with_timesteps(start_offset)
-        assert start_offset_sequence is not None
 
-        unconditional_state = self.get_streaming_state()
-        prev_offset = 0
         gen_sequence_len = music_gen_sequence.shape[-1]  # gen_sequence shape is [B, K, S]
-        for offset in tqdm(range(start_offset_sequence, gen_sequence_len), desc="Generating music & motion"):
-            # get current sequence (note that the streaming API is providing the caching over previous offsets)
-            music_curr_sequence = music_gen_sequence[..., prev_offset:offset]
-            music_curr_mask = music_mask[None, ..., prev_offset:offset].expand(B, -1, -1)
-            motion_curr_sequence = motion_gen_sequence[..., prev_offset:offset]
-            motion_curr_mask = motion_mask[None, ..., prev_offset:offset].expand(B, -1, -1)
+        for offset in tqdm(range(1, gen_sequence_len), desc="Generating music & motion"):
+            # get current sequence
+            music_curr_sequence = music_gen_sequence[..., 0:offset]
+            music_curr_mask = music_mask[None, ..., 0:offset].expand(B, -1, -1)
+            motion_curr_sequence = motion_gen_sequence[..., 0:offset]
+            motion_curr_mask = motion_mask[None, ..., 0:offset].expand(B, -1, -1)
             if check:
                 # check coherence between mask and sequence
                 assert (music_curr_sequence == torch.where(music_curr_mask, music_curr_sequence, self.music_special_token_id)).all()
@@ -610,17 +475,17 @@ class LMModel(StreamingModule):
                 assert not (motion_curr_sequence == unknown_token).any()
             # sample next token from the model, next token shape is [B, K, 1]
             music_next_token, motion_next_token = self._sample_next_token(
-                music_curr_sequence, motion_curr_sequence, cfg_conditions, unconditional_state, use_sampling,
-                temp, top_k, top_p, cfg_coef=cfg_coef, two_step_cfg=two_step_cfg)
+                music_curr_sequence, motion_curr_sequence, cfg_conditions, use_sampling,
+                temp, top_k, top_p, cfg_coef=cfg_coef
+            )
             # ensure the tokens that should be masked are properly set to special_token_id
             # as the model never output special_token_id
             music_valid_mask = music_mask[..., offset:offset+1].expand(B, -1, -1)
             music_next_token[~music_valid_mask] = self.music_special_token_id
             motion_valid_mask = motion_mask[..., offset:offset + 1].expand(B, -1, -1)
             motion_next_token[~motion_valid_mask] = self.motion_special_token_id
-            # ensure we don't overwrite prompt tokens, we only write over unknown tokens
-            # (then mask tokens should be left as is as well, which is correct)
-            # then update the prediction if they are not provided
+            # We only write over unknown tokens
+            # i.e., update the prediction if they are not provided
             if music_code is None:
                 music_gen_sequence[..., offset:offset+1] = torch.where(
                     music_gen_sequence[..., offset:offset+1] == unknown_token,
@@ -631,9 +496,6 @@ class LMModel(StreamingModule):
                     motion_gen_sequence[..., offset:offset + 1] == unknown_token,
                     motion_next_token, motion_gen_sequence[..., offset:offset + 1]
                 )
-            if callback is not None:
-                callback(1 + offset - start_offset_sequence, gen_sequence_len - start_offset_sequence)
-        unconditional_state.clear()
 
         # ensure sequence has been entirely filled
         assert not (music_gen_sequence == unknown_token).any()
@@ -656,9 +518,8 @@ class LMModel(StreamingModule):
         assert (motion_out_codes[..., :max_gen_len] != unknown_token).all()
         assert (motion_out_mask[..., :max_gen_len] == 1).all()
 
-        out_start_offset = start_offset if remove_prompts else 0
-        music_out_codes = music_out_codes[..., out_start_offset:max_gen_len]
-        motion_out_codes = motion_out_codes[..., out_start_offset:max_gen_len]
+        music_out_codes = music_out_codes[..., 0:max_gen_len]
+        motion_out_codes = motion_out_codes[..., 0:max_gen_len]
 
         # ensure the returned codes are all valid
         assert (music_out_codes >= 0).all() and (music_out_codes <= self.card).all()

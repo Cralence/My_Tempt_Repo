@@ -381,7 +381,6 @@ class MusicMotionTransformer(pl.LightningModule):
             top_k=self.generation_params['top_k'],
             top_p=self.generation_params['top_p'],
             cfg_coef=self.generation_params['cfg_coef'] if conditional_guidance_scale is None else conditional_guidance_scale,
-            two_step_cfg=self.generation_params['two_step_cfg'],
         )
 
         return gen_tokens

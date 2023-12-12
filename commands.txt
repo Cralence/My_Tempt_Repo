@@ -27,7 +27,7 @@ source ~/.bashrc_dcs
 salloc -N 1 --gres=gpu:6 -t 180
 
 synchronize code:
-scp -P 12345 -r ./music_motion_diffusion/mmldm/audio/audiocraft_new/models/builders.py zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/audio/audiocraft_new/models
+scp -P 12345 -r ./music_motion_diffusion/mmldm/audio/audiocraft_new/models/builders.py zfchen@150.136.210.72:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/audio/audiocraft_new/models
 scp -P 12345 ./music_motion_diffusion/mmldm/audio/audiocraft_new/models/mm_lm_ablation.py zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/audio/audiocraft_new/models/
 scp -P 12345 ./music_motion_diffusion/mmldm/data/music_motion_text_dataset_ablation.py zfchen@150.136.223.210:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/mmldm/data
 scp -P 12333 ./music_motion_diffusion/configs/mm_transformer_v15.yaml haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/configs
@@ -40,8 +40,8 @@ scp -P 12333 ./music_motion_diffusion/mmldm/models/mm_transformer_v7.py haoyu@15
 
 
 download dir:
-scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/samples ./
-scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/2023-11-09T22-06-15_mm_transformer_v14/video_log/ ./
+scp -P 12345 -r zfchen@150.136.210.72:/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/ ./
+scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/My_Tempt_Repo/mm_transformer_logs/2023-12-11T22-42-15_transformer_configs/tensorboard/ ./
 scp -P 12333 -r haoyu@150.136.210.72:/home/haoyu/aimos/LMCGnngn/yanghan/music_motion_diffusion/mm_transformer_logs/2023-11-15T21-15-37_mm_transformer_ablation_5/video_log/ ./
 scp -r yiningh@satori-login-001.mit.edu:/nobackup/users/yiningh/yh/music_dance/submission/music_motion_vae_logs/2023-11-06T15-02-19_mm_transformer_v14/video_log ./
 scp -r yiningh@satori-login-001.mit.edu:/nobackup/users/yiningh/yh/music_dance/submission/music_motion_vae_logs/2023-09-10T09-50-14_mm_vqvae_v13/video_log ./
