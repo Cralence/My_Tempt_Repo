@@ -22,7 +22,7 @@ from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint as torch_checkpoint
 import math
 #from xformers import ops
-from unimumo.audio.xformers_ import ops
+from ..xformers_ import ops
 
 from .rope import RotaryEmbedding
 from .streaming import StreamingModule
@@ -262,7 +262,7 @@ class StreamingMultiheadAttention(StreamingModule):
         # convention both in the builtin MHA in Pytorch, and Xformers functions.
         time_dim = _get_attention_time_dimension(self.memory_efficient)
         if self.memory_efficient:
-            from unimumo.audio.xformers_.ops import LowerTriangularMask
+            from ..xformers_.ops import LowerTriangularMask
             if current_steps == 1:
                 # If we only have one step, then we do not need a mask.
                 return None
@@ -756,7 +756,7 @@ class StreamingTransformer(StreamingModule):
 
 def _verify_xformers_memory_efficient_compat():
     try:
-        from unimumo.audio.xformers_.ops import memory_efficient_attention, LowerTriangularMask  # noqa
+        from ..xformers_.ops import memory_efficient_attention, LowerTriangularMask  # noqa
     except ImportError:
         raise ImportError(
             "xformers is not installed. Please install it and try again.\n"
