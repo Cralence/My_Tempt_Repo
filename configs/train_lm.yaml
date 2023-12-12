@@ -48,7 +48,7 @@ model:
 data:
   target: train.DataModuleFromConfig
   params:
-    batch_size: 2
+    batch_size: 3
     wrap: True
     num_workers: 2
     train:
@@ -87,14 +87,13 @@ lightning:
         motion_vqvae_config_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/final_version_2/My_Tempt_Repo/configs/motion_vqvae_configs.yaml'
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         epoch_frequency: 10
-        max_video_per_generation: 0
+        max_video_per_generation: 4
         duration: 10
         sr: 32000
         max_video_logged: 120
         disabled: false
   trainer:
     benchmark: True
-    devices: 1
+    devices: 6
     num_nodes: 1
-    #strategy: ddp
-    # strategy: ddp_find_unused_parameters_true
+    strategy: ddp
