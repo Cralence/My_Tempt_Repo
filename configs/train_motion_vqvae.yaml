@@ -21,7 +21,6 @@ model:
       depth_per_res_block: 6
       activation: 'relu'
     music_config:
-      #vqvae_ckpt: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
       vqvae_ckpt: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
     pre_post_quantize_config:
       pre_quant_conv_mult: 4
@@ -34,37 +33,29 @@ data:
     batch_size: 30
     wrap: True
     train:
-      target: unimumo.data.music_motion_dataset_v2.MusicMotionDataset
+      target: unimumo.data.music_motion_dataset.MusicMotionDataset
       params:
         split: "train"
-        #music_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all/audios'
-        #feature_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all/music4all_feature'
-        #meta_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all'
-        #motion_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data'
         music_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/audios'
-        feature_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_beat'
-        meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/'
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
+        music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/'
+        music_beat_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_beat'
         duration: 5
-        train_humanml3d: True
+        use_humanml3d: True
         music_dataset_name: 'music4all'
         traverse_motion: True
         align: True
 
     validation:
-      target: unimumo.data.music_motion_dataset_v2.MusicMotionDataset
+      target: unimumo.data.music_motion_dataset.MusicMotionDataset
       params:
         split: "val"
-        #music_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all/audios'
-        #feature_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all/music4all_feature'
-        #meta_dir: 'D:/local_documentation/deep_learning/ChuangGan/music4all'
-        #motion_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data'
         music_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/audios'
-        feature_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_beat'
-        meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/'
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
+        music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/'
+        music_beat_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_beat'
         duration: 5
-        train_humanml3d: True
+        use_humanml3d: True
         music_dataset_name: 'music4all'
         traverse_motion: True
         align: True

@@ -17,9 +17,8 @@ from dtw import *
 class MusicMotionDataset(Dataset):
     def __init__(
         self, split: str, music_dir: str, motion_dir: str, music_meta_dir: str, music_beat_dir: str,
-        duration: int = 10, use_humanml3d: bool = False,
-        music_dataset_name: str = 'music4all', traverse_motion: bool = True, align: bool = True,
-        music_ignore_name: tp.Optional[str] = None
+        duration: int = 10, use_humanml3d: bool = False, music_dataset_name: str = 'music4all',
+        traverse_motion: bool = True, align: bool = True, music_ignore_name: tp.Optional[str] = None
     ):
         self.split = split
 

@@ -8,17 +8,11 @@ import pytorch_lightning as pl
 from einops import rearrange
 import typing as tp
 
-from unimumo.audio.audiocraft_new.models.builders import get_compression_model
-from unimumo.audio.audiocraft_new.quantization.vq import ResidualVectorQuantizer
-from unimumo.audio.audiocraft_new.modules.seanet import SEANetEncoder
+from unimumo.audio.audiocraft_.models.builders import get_compression_model
+from unimumo.audio.audiocraft_.quantization.vq import ResidualVectorQuantizer
+from unimumo.audio.audiocraft_.modules.seanet import SEANetEncoder
 from unimumo.motion.motion_process import recover_from_ric
 from unimumo.modules.motion_vqvae_module import Encoder, Decoder
-
-
-def disabled_train(self, mode=True):
-    """Overwrite model.train with this function to make sure train/eval mode
-    does not change anymore."""
-    return self
 
 
 class MotionVQVAE(pl.LightningModule):
@@ -101,6 +95,7 @@ class MotionVQVAE(pl.LightningModule):
         for p in encoder.parameters():
             p.requires_grad = False
 
+        # set codebook entries unchangeable
         quantizer.freeze_codebook = True
 
         return encoder, quantizer
@@ -144,7 +139,7 @@ class MotionVQVAE(pl.LightningModule):
     def forward(self, batch: tp.Dict[str, torch.Tensor]) -> tp.Tuple[torch.Tensor, torch.Tensor]:
         music_emb, motion_emb = self.encode(batch[self.music_key], batch[self.motion_key])
 
-        q_res_music = self.quantizer(music_emb, 50)  # 50 is the fixed sample rate
+        q_res_music = self.quantizer(music_emb, 50)  # 50 is the fixed frame rate
         q_res_motion = self.quantizer(motion_emb, 50)
 
         motion_recon = self.decode(q_res_music.x, q_res_motion.x)

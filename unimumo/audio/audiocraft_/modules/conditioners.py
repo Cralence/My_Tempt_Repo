@@ -9,88 +9,54 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from itertools import chain
 import logging
-import math
 import random
 import re
 import typing as tp
 import warnings
 
-from einops import rearrange
+import einops
 from num2words import num2words
 import spacy
-from transformers import T5EncoderModel, T5Tokenizer  # type: ignore
-import torchaudio
+from transformers import RobertaTokenizer, T5EncoderModel, T5Tokenizer  # type: ignore
 import torch
 from torch import nn
-from torch import Tensor
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 
 from .streaming import StreamingModule
 from .transformer import create_sin_embedding
-from ..data.audio_dataset import SegmentInfo
+from unimumo.audio.audiocraft_.data.audio_dataset import SegmentInfo
 from ..utils.autocast import TorchAutocast
-from ..utils.utils import hash_trick, length_to_mask, collate
+from ..utils.utils import collate, hash_trick, length_to_mask
 
 
 logger = logging.getLogger(__name__)
 TextCondition = tp.Optional[str]  # a text condition can be a string or None (if doesn't exist)
-ConditionType = tp.Tuple[Tensor, Tensor]  # condition, mask
+ConditionType = tp.Tuple[torch.Tensor, torch.Tensor]  # condition, mask
 
 
 class WavCondition(tp.NamedTuple):
-    wav: Tensor
-    length: Tensor
+    wav: torch.Tensor
+    length: torch.Tensor
+    sample_rate: tp.List[int]
     path: tp.List[tp.Optional[str]] = []
+    seek_time: tp.List[tp.Optional[float]] = []
 
 
-def nullify_condition(condition: ConditionType, dim: int = 1):
-    """This function transforms an input condition to a null condition.
-    The way it is done by converting it to a single zero vector similarly
-    to how it is done inside WhiteSpaceTokenizer and NoopTokenizer.
-
-    Args:
-        condition (ConditionType): a tuple of condition and mask (tp.Tuple[Tensor, Tensor])
-        dim (int): the dimension that will be truncated (should be the time dimension)
-        WARNING!: dim should not be the batch dimension!
-    Returns:
-        ConditionType: a tuple of null condition and mask
-    """
-    assert dim != 0, "dim cannot be the batch dimension!"
-    assert type(condition) == tuple and \
-        type(condition[0]) == Tensor and \
-        type(condition[1]) == Tensor, "'nullify_condition' got an unexpected input type!"
-    cond, mask = condition
-    B = cond.shape[0]
-    last_dim = cond.dim() - 1
-    out = cond.transpose(dim, last_dim)
-    out = 0. * out[..., :1]
-    out = out.transpose(dim, last_dim)
-    mask = torch.zeros((B, 1), device=out.device).int()
-    assert cond.dim() == out.dim()
-    return out, mask
-
-
-def nullify_wav(wav: Tensor) -> WavCondition:
-    """Create a nullified WavCondition from a wav tensor with appropriate shape.
-
-    Args:
-        wav (Tensor): tensor of shape [B, T]
-    Returns:
-        WavCondition: wav condition with nullified wav.
-    """
-    null_wav, _ = nullify_condition((wav, torch.zeros_like(wav)), dim=wav.dim() - 1)
-    return WavCondition(
-        wav=null_wav,
-        length=torch.tensor([0] * wav.shape[0], device=wav.device),
-        path=['null_wav'] * wav.shape[0]
-    )
+class JointEmbedCondition(tp.NamedTuple):
+    wav: torch.Tensor
+    text: tp.List[tp.Optional[str]]
+    length: torch.Tensor
+    sample_rate: tp.List[int]
+    path: tp.List[tp.Optional[str]] = []
+    seek_time: tp.List[tp.Optional[float]] = []
 
 
 @dataclass
 class ConditioningAttributes:
     text: tp.Dict[str, tp.Optional[str]] = field(default_factory=dict)
     wav: tp.Dict[str, WavCondition] = field(default_factory=dict)
+    joint_embed: tp.Dict[str, JointEmbedCondition] = field(default_factory=dict)
 
     def __getitem__(self, item):
         return getattr(self, item)
@@ -104,13 +70,22 @@ class ConditioningAttributes:
         return self.wav.keys()
 
     @property
+    def joint_embed_attributes(self):
+        return self.joint_embed.keys()
+
+    @property
     def attributes(self):
-        return {"text": self.text_attributes, "wav": self.wav_attributes}
+        return {
+            "text": self.text_attributes,
+            "wav": self.wav_attributes,
+            "joint_embed": self.joint_embed_attributes,
+        }
 
     def to_flat_dict(self):
         return {
             **{f"text.{k}": v for k, v in self.text.items()},
             **{f"wav.{k}": v for k, v in self.wav.items()},
+            **{f"joint_embed.{k}": v for k, v in self.joint_embed.items()}
         }
 
     @classmethod
@@ -131,11 +106,74 @@ class SegmentWithAttributes(SegmentInfo):
         raise NotImplementedError()
 
 
+def nullify_condition(condition: ConditionType, dim: int = 1):
+    """Transform an input condition to a null condition.
+    The way it is done by converting it to a single zero vector similarly
+    to how it is done inside WhiteSpaceTokenizer and NoopTokenizer.
+
+    Args:
+        condition (ConditionType): A tuple of condition and mask (tuple[torch.Tensor, torch.Tensor])
+        dim (int): The dimension that will be truncated (should be the time dimension)
+        WARNING!: dim should not be the batch dimension!
+    Returns:
+        ConditionType: A tuple of null condition and mask
+    """
+    assert dim != 0, "dim cannot be the batch dimension!"
+    assert isinstance(condition, tuple) and \
+        isinstance(condition[0], torch.Tensor) and \
+        isinstance(condition[1], torch.Tensor), "'nullify_condition' got an unexpected input type!"
+    cond, mask = condition
+    B = cond.shape[0]
+    last_dim = cond.dim() - 1
+    out = cond.transpose(dim, last_dim)
+    out = 0. * out[..., :1]
+    out = out.transpose(dim, last_dim)
+    mask = torch.zeros((B, 1), device=out.device).int()
+    assert cond.dim() == out.dim()
+    return out, mask
+
+
+def nullify_wav(cond: WavCondition) -> WavCondition:
+    """Transform a WavCondition to a nullified WavCondition.
+    It replaces the wav by a null tensor, forces its length to 0, and replaces metadata by dummy attributes.
+
+    Args:
+        cond (WavCondition): Wav condition with wav, tensor of shape [B, T].
+    Returns:
+        WavCondition: Nullified wav condition.
+    """
+    null_wav, _ = nullify_condition((cond.wav, torch.zeros_like(cond.wav)), dim=cond.wav.dim() - 1)
+    return WavCondition(
+        wav=null_wav,
+        length=torch.tensor([0] * cond.wav.shape[0], device=cond.wav.device),
+        sample_rate=cond.sample_rate,
+        path=[None] * cond.wav.shape[0],
+        seek_time=[None] * cond.wav.shape[0],
+    )
+
+
+def nullify_joint_embed(embed: JointEmbedCondition) -> JointEmbedCondition:
+    """Nullify the joint embedding condition by replacing it by a null tensor, forcing its length to 0,
+    and replacing metadata by dummy attributes.
+
+    Args:
+        cond (JointEmbedCondition): Joint embedding condition with wav and text, wav tensor of shape [B, C, T].
+    """
+    null_wav, _ = nullify_condition((embed.wav, torch.zeros_like(embed.wav)), dim=embed.wav.dim() - 1)
+    return JointEmbedCondition(
+        wav=null_wav, text=[None] * len(embed.text),
+        length=torch.LongTensor([0]).to(embed.wav.device),
+        sample_rate=embed.sample_rate,
+        path=[None] * embed.wav.shape[0],
+        seek_time=[0] * embed.wav.shape[0],
+    )
+
+
 class Tokenizer:
-    """Base class for all tokenizers
+    """Base tokenizer implementation
     (in case we want to introduce more advances tokenizers in the future).
     """
-    def __call__(self, texts: tp.List[tp.Optional[str]]) -> tp.Tuple[Tensor, Tensor]:
+    def __call__(self, texts: tp.List[tp.Optional[str]]) -> tp.Tuple[torch.Tensor, torch.Tensor]:
         raise NotImplementedError()
 
 
@@ -146,7 +184,7 @@ class WhiteSpaceTokenizer(Tokenizer):
     [[78, 62, 31,  4, 78, 25, 19, 34],
     [59, 77,  0,  0,  0,  0,  0,  0]]
     """
-    PUNCTUATIONS = "?:!.,;"
+    PUNCTUATION = "?:!.,;"
 
     def __init__(self, n_bins: int, pad_idx: int = 0, language: str = "en_core_web_sm",
                  lemma: bool = True, stopwords: bool = True) -> None:
@@ -161,18 +199,15 @@ class WhiteSpaceTokenizer(Tokenizer):
             self.nlp = spacy.load(language)
 
     @tp.no_type_check
-    def __call__(
-        self,
-        texts: tp.List[tp.Optional[str]],
-        return_text: bool = False
-    ) -> tp.Tuple[Tensor, Tensor]:
+    def __call__(self, texts: tp.List[tp.Optional[str]],
+                 return_text: bool = False) -> tp.Tuple[torch.Tensor, torch.Tensor]:
         """Take a list of strings and convert them to a tensor of indices.
 
         Args:
-            texts (tp.List[str]): List of strings.
+            texts (list[str]): List of strings.
             return_text (bool, optional): Whether to return text as additional tuple item. Defaults to False.
         Returns:
-            tp.Tuple[Tensor, Tensor]:
+            tuple[torch.Tensor, torch.Tensor]:
                 - Indices of words in the LUT.
                 - And a mask indicating where the padding tokens are
         """
@@ -181,7 +216,7 @@ class WhiteSpaceTokenizer(Tokenizer):
         for i, text in enumerate(texts):
             # if current sample doesn't have a certain attribute, replace with pad token
             if text is None:
-                output.append(Tensor([self.pad_idx]))
+                output.append(torch.Tensor([self.pad_idx]))
                 lengths.append(0)
                 continue
 
@@ -192,15 +227,15 @@ class WhiteSpaceTokenizer(Tokenizer):
             # remove stopwords
             if self.stopwords:
                 text = [w for w in text if not w.is_stop]  # type: ignore
-            # remove punctuations
-            text = [w for w in text if w.text not in self.PUNCTUATIONS]  # type: ignore
+            # remove punctuation
+            text = [w for w in text if w.text not in self.PUNCTUATION]  # type: ignore
             # lemmatize if needed
             text = [getattr(t, "lemma_" if self.lemma else "text") for t in text]  # type: ignore
 
             texts[i] = " ".join(text)
             lengths.append(len(text))
             # convert to tensor
-            tokens = Tensor([hash_trick(w, self.n_bins) for w in text])
+            tokens = torch.Tensor([hash_trick(w, self.n_bins) for w in text])
             output.append(tokens)
 
         mask = length_to_mask(torch.IntTensor(lengths)).int()
@@ -224,7 +259,7 @@ class NoopTokenizer(Tokenizer):
         self.n_bins = n_bins
         self.pad_idx = pad_idx
 
-    def __call__(self, texts: tp.List[tp.Optional[str]]) -> tp.Tuple[Tensor, Tensor]:
+    def __call__(self, texts: tp.List[tp.Optional[str]]) -> tp.Tuple[torch.Tensor, torch.Tensor]:
         output, lengths = [], []
         for text in texts:
             # if current sample doesn't have a certain attribute, replace with pad token
@@ -241,15 +276,16 @@ class NoopTokenizer(Tokenizer):
 
 
 class BaseConditioner(nn.Module):
-    """Base model for all conditioner modules. We allow the output dim to be different
-    than the hidden dim for two reasons: 1) keep our LUTs small when the vocab is large;
+    """Base model for all conditioner modules.
+    We allow the output dim to be different than the hidden dim for two reasons:
+    1) keep our LUTs small when the vocab is large;
     2) make all condition dims consistent.
 
     Args:
-        dim (int): Hidden dim of the model (text-encoder/LUT).
+        dim (int): Hidden dim of the model.
         output_dim (int): Output dim of the conditioner.
     """
-    def __init__(self, dim, output_dim):
+    def __init__(self, dim: int, output_dim: int):
         super().__init__()
         self.dim = dim
         self.output_dim = output_dim
@@ -294,9 +330,9 @@ class LUTConditioner(TextConditioner):
         super().__init__(dim, output_dim)
         self.embed = nn.Embedding(n_bins, dim)
         self.tokenizer: Tokenizer
-        if tokenizer == "whitespace":
+        if tokenizer == 'whitespace':
             self.tokenizer = WhiteSpaceTokenizer(n_bins, pad_idx=pad_idx)
-        elif tokenizer == "noop":
+        elif tokenizer == 'noop':
             self.tokenizer = NoopTokenizer(n_bins, pad_idx=pad_idx)
         else:
             raise ValueError(f"unrecognized tokenizer `{tokenizer}`.")
@@ -346,22 +382,21 @@ class T5Conditioner(TextConditioner):
     def __init__(self, name: str, output_dim: int, finetune: bool, device: str,
                  autocast_dtype: tp.Optional[str] = 'float32', word_dropout: float = 0.,
                  normalize_text: bool = False):
-        assert name in self.MODELS, f"unrecognized t5 model name (should in {self.MODELS})"
+        assert name in self.MODELS, f"Unrecognized t5 model name (should in {self.MODELS})"
         super().__init__(self.MODELS_DIMS[name], output_dim)
-        self.device = device
+        #self.device = device
         self.name = name
         self.finetune = finetune
         self.word_dropout = word_dropout
-
-        if autocast_dtype is None or self.device == 'cpu':
+        if autocast_dtype is None or device == 'cpu':
             self.autocast = TorchAutocast(enabled=False)
-            if self.device != 'cpu':
+            if device != 'cpu':
                 logger.warning("T5 has no autocast, this might lead to NaN")
         else:
             dtype = getattr(torch, autocast_dtype)
             assert isinstance(dtype, torch.dtype)
-            logger.info(f"T5 will be evaluated with autocast as {autocast_dtype}")
-            self.autocast = TorchAutocast(enabled=True, device_type=self.device, dtype=dtype)
+            print(f"T5 will be evaluated with autocast as {autocast_dtype}")
+            self.autocast = TorchAutocast(enabled=True, device_type=device, dtype=dtype)
         # Let's disable logging temporarily because T5 will vomit some errors otherwise.
         # thanks https://gist.github.com/simon-weber/7853144
         previous_level = logging.root.manager.disable
@@ -369,6 +404,9 @@ class T5Conditioner(TextConditioner):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
+                print(f'Load t5 model name: {name}')
+                name = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/models--t5-base-musicgen/snapshots/fe6d9bf207cd3337512ca838a8b453f87a9178ef'
+
                 self.t5_tokenizer = T5Tokenizer.from_pretrained(name)
                 t5 = T5EncoderModel.from_pretrained(name).train(mode=finetune)
             finally:
@@ -378,13 +416,17 @@ class T5Conditioner(TextConditioner):
         else:
             # this makes sure that the t5 models is not part
             # of the saved checkpoint
-            self.__dict__["t5"] = t5.to(device)
+            # self.__dict__['t5'] = t5.to(device)
+            self.t5 = t5
+            for p in self.t5.parameters():
+                p.requires_grad = False
+            self.t5.eval()
 
         self.normalize_text = normalize_text
         if normalize_text:
             self.text_normalizer = WhiteSpaceTokenizer(1, lemma=True, stopwords=True)
 
-    def tokenize(self, x: tp.List[tp.Optional[str]]) -> tp.Dict[str, torch.Tensor]:
+    def tokenize(self, x: tp.List[tp.Optional[str]], device) -> tp.Dict[str, torch.Tensor]:
         # if current sample doesn't have a certain attribute, replace with empty string
         entries: tp.List[str] = [xi if xi is not None else "" for xi in x]
         if self.normalize_text:
@@ -398,13 +440,13 @@ class T5Conditioner(TextConditioner):
 
         empty_idx = torch.LongTensor([i for i, xi in enumerate(entries) if xi == ""])
 
-        inputs = self.t5_tokenizer(entries, return_tensors="pt", padding=True).to(self.device)
-        mask = inputs["attention_mask"]
+        inputs = self.t5_tokenizer(entries, return_tensors='pt', padding=True).to(device)
+        mask = inputs['attention_mask']
         mask[empty_idx, :] = 0  # zero-out index where the input is non-existant
         return inputs
 
     def forward(self, inputs: tp.Dict[str, torch.Tensor]) -> ConditionType:
-        mask = inputs["attention_mask"]
+        mask = inputs['attention_mask']
         with torch.set_grad_enabled(self.finetune), self.autocast:
             embeds = self.t5(**inputs).last_hidden_state
         embeds = self.output_proj(embeds.to(self.output_proj.weight))
@@ -412,218 +454,31 @@ class T5Conditioner(TextConditioner):
         return embeds, mask
 
 
-class WaveformConditioner(BaseConditioner):
-    """Base class for all conditioners that take a waveform as input.
-    Classes that inherit must implement `_get_wav_embedding` that outputs
-    a continuous tensor, and `_downsampling_factor` that returns the down-sampling
-    factor of the embedding model.
-
-    Args:
-        dim (int): The internal representation dimension.
-        output_dim (int): Output dimension.
-        device (tp.Union[torch.device, str]): Device.
-    """
-    def __init__(self, dim: int, output_dim: int, device: tp.Union[torch.device, str]):
-        super().__init__(dim, output_dim)
-        self.device = device
-
-    def tokenize(self, wav_length: WavCondition) -> WavCondition:
-        wav, length, path = wav_length
-        assert length is not None
-        return WavCondition(wav.to(self.device), length.to(self.device), path)
-
-    def _get_wav_embedding(self, wav: Tensor) -> Tensor:
-        """Gets as input a wav and returns a dense vector of conditions."""
-        raise NotImplementedError()
-
-    def _downsampling_factor(self):
-        """Returns the downsampling factor of the embedding model."""
-        raise NotImplementedError()
-
-    def forward(self, inputs: WavCondition) -> ConditionType:
-        """
-        Args:
-            input (WavCondition): Tuple of (waveform, lengths).
-        Returns:
-            ConditionType: Dense vector representing the conditioning along with its' mask.
-        """
-        wav, lengths, path = inputs
-        with torch.no_grad():
-            embeds = self._get_wav_embedding(wav)
-        embeds = embeds.to(self.output_proj.weight)
-        embeds = self.output_proj(embeds)
-
-        if lengths is not None:
-            lengths = lengths / self._downsampling_factor()
-            mask = length_to_mask(lengths, max_len=embeds.shape[1]).int()  # type: ignore
-        else:
-            mask = torch.ones_like(embeds)
-        embeds = (embeds * mask.unsqueeze(2).to(self.device))
-
-        return embeds, mask
-
-
-class ChromaStemConditioner(WaveformConditioner):
-    """Chroma conditioner that uses DEMUCS to first filter out drums and bass. The is followed by
-    the insight the drums and bass often dominate the chroma, leading to the chroma not containing the
-    information about melody.
-
-    Args:
-        output_dim (int): Output dimension for the conditioner.
-        sample_rate (int): Sample rate for the chroma extractor.
-        n_chroma (int): Number of chroma for the chroma extractor.
-        radix2_exp (int): Radix2 exponent for the chroma extractor.
-        duration (float): Duration used during training. This is later used for correct padding
-            in case we are using chroma as prefix.
-        match_len_on_eval (bool, optional): If True then all chromas are padded to the training
-            duration. Defaults to False.
-        eval_wavs (str, optional): Path to a json egg with waveform, this waveforms are used as
-            conditions during eval (for cases where we don't want to leak test conditions like MusicCaps).
-            Defaults to None.
-        n_eval_wavs (int, optional): Limits the number of waveforms used for conditioning. Defaults to 0.
-        device (tp.Union[torch.device, str], optional): Device for the conditioner.
-        **kwargs: Additional parameters for the chroma extractor.
-    """
-    def __init__(self, output_dim: int, sample_rate: int, n_chroma: int, radix2_exp: int,
-                 duration: float, match_len_on_eval: bool = True, eval_wavs: tp.Optional[str] = None,
-                 n_eval_wavs: int = 0, device: tp.Union[torch.device, str] = "cpu", **kwargs):
-        from demucs import pretrained
-        super().__init__(dim=n_chroma, output_dim=output_dim, device=device)
-        self.autocast = TorchAutocast(enabled=device != "cpu", device_type=self.device, dtype=torch.float32)
-        self.sample_rate = sample_rate
-        self.match_len_on_eval = match_len_on_eval
-        self.duration = duration
-        self.__dict__["demucs"] = pretrained.get_model('htdemucs').to(device)
-        self.stem2idx = {'drums': 0, 'bass': 1, 'other': 2, 'vocal': 3}
-        self.stem_idx = torch.LongTensor([self.stem2idx['vocal'], self.stem2idx['other']]).to(device)
-        self.chroma = ChromaExtractor(sample_rate=sample_rate, n_chroma=n_chroma, radix2_exp=radix2_exp,
-                                      device=device, **kwargs)
-        self.chroma_len = self._get_chroma_len()
-
-    def _downsampling_factor(self):
-        return self.chroma.winhop
-
-    def _get_chroma_len(self):
-        """Get length of chroma during training"""
-        dummy_wav = torch.zeros((1, self.sample_rate * self.duration), device=self.device)
-        dummy_chr = self.chroma(dummy_wav)
-        return dummy_chr.shape[1]
-
-    @torch.no_grad()
-    def _get_filtered_wav(self, wav):
-        from demucs.apply import apply_model
-        from demucs.audio import convert_audio
-        with self.autocast:
-            wav = convert_audio(wav, self.sample_rate, self.demucs.samplerate, self.demucs.audio_channels)
-            stems = apply_model(self.demucs, wav, device=self.device)
-            stems = stems[:, self.stem_idx]  # extract stem
-            stems = stems.sum(1)  # merge extracted stems
-            stems = stems.mean(1, keepdim=True)  # mono
-            stems = convert_audio(stems, self.demucs.samplerate, self.sample_rate, 1)
-            return stems
-
-    @torch.no_grad()
-    def _get_wav_embedding(self, wav):
-        # avoid 0-size tensors when we are working with null conds
-        if wav.shape[-1] == 1:
-            return self.chroma(wav)
-        stems = self._get_filtered_wav(wav)
-        chroma = self.chroma(stems)
-
-        if self.match_len_on_eval:
-            b, t, c = chroma.shape
-            if t > self.chroma_len:
-                chroma = chroma[:, :self.chroma_len]
-                logger.debug(f'chroma was truncated! ({t} -> {chroma.shape[1]})')
-            elif t < self.chroma_len:
-                # chroma = F.pad(chroma, (0, 0, 0, self.chroma_len - t))
-                n_repeat = int(math.ceil(self.chroma_len / t))
-                chroma = chroma.repeat(1, n_repeat, 1)
-                chroma = chroma[:, :self.chroma_len]
-                logger.debug(f'chroma was zero-padded! ({t} -> {chroma.shape[1]})')
-        return chroma
-
-
-class ChromaExtractor(nn.Module):
-    """Chroma extraction class, handles chroma extraction and quantization.
-
-    Args:
-        sample_rate (int): Sample rate.
-        n_chroma (int): Number of chroma to consider.
-        radix2_exp (int): Radix2 exponent.
-        nfft (tp.Optional[int], optional): Number of FFT.
-        winlen (tp.Optional[int], optional): Window length.
-        winhop (tp.Optional[int], optional): Window hop size.
-        argmax (bool, optional): Whether to use argmax. Defaults to False.
-        norm (float, optional): Norm for chroma normalization. Defaults to inf.
-        device (tp.Union[torch.device, str], optional): Device to use. Defaults to cpu.
-    """
-    def __init__(self, sample_rate: int, n_chroma: int = 12, radix2_exp: int = 12,
-                 nfft: tp.Optional[int] = None, winlen: tp.Optional[int] = None, winhop: tp.Optional[int] = None,
-                 argmax: bool = False, norm: float = torch.inf, device: tp.Union[torch.device, str] = "cpu"):
-        super().__init__()
-        from librosa import filters
-        self.device = device
-        self.autocast = TorchAutocast(enabled=device != "cpu", device_type=self.device, dtype=torch.float32)
-        self.winlen = winlen or 2 ** radix2_exp
-        self.nfft = nfft or self.winlen
-        self.winhop = winhop or (self.winlen // 4)
-        self.sr = sample_rate
-        self.n_chroma = n_chroma
-        self.norm = norm
-        self.argmax = argmax
-        self.window = torch.hann_window(self.winlen).to(device)
-        self.fbanks = torch.from_numpy(filters.chroma(sr=sample_rate, n_fft=self.nfft, tuning=0,
-                                                      n_chroma=self.n_chroma)).to(device)
-        self.spec = torchaudio.transforms.Spectrogram(n_fft=self.nfft, win_length=self.winlen,
-                                                      hop_length=self.winhop, power=2, center=True,
-                                                      pad=0, normalized=True).to(device)
-
-    def forward(self, wav):
-        with self.autocast:
-            T = wav.shape[-1]
-            # in case we are getting a wav that was dropped out (nullified)
-            # make sure wav length is no less that nfft
-            if T < self.nfft:
-                pad = self.nfft - T
-                r = 0 if pad % 2 == 0 else 1
-                wav = F.pad(wav, (pad // 2, pad // 2 + r), 'constant', 0)
-                assert wav.shape[-1] == self.nfft, f'expected len {self.nfft} but got {wav.shape[-1]}'
-            spec = self.spec(wav).squeeze(1)
-            raw_chroma = torch.einsum("cf,...ft->...ct", self.fbanks, spec)
-            norm_chroma = torch.nn.functional.normalize(raw_chroma, p=self.norm, dim=-2, eps=1e-6)
-            norm_chroma = rearrange(norm_chroma, "b d t -> b t d")
-
-            if self.argmax:
-                idx = norm_chroma.argmax(-1, keepdims=True)
-                norm_chroma[:] = 0
-                norm_chroma.scatter_(dim=-1, index=idx, value=1)
-
-            return norm_chroma
-
-
-def dropout_condition(sample: ConditioningAttributes, condition_type: str, condition: str):
+def dropout_condition(sample: ConditioningAttributes, condition_type: str, condition: str) -> ConditioningAttributes:
     """Utility function for nullifying an attribute inside an ConditioningAttributes object.
-    If the condition is of type "wav", then nullify it using "nullify_condition".
-    If the condition is of any other type, set its' value to None.
+    If the condition is of type "wav", then nullify it using `nullify_condition` function.
+    If the condition is of any other type, set its value to None.
     Works in-place.
     """
-    if condition_type not in ["text", "wav"]:
+    if condition_type not in ['text', 'wav', 'joint_embed']:
         raise ValueError(
             "dropout_condition got an unexpected condition type!"
-            f" expected 'wav' or 'text' but got '{condition_type}'"
+            f" expected 'text', 'wav' or 'joint_embed' but got '{condition_type}'"
         )
 
     if condition not in getattr(sample, condition_type):
         raise ValueError(
             "dropout_condition received an unexpected condition!"
             f" expected wav={sample.wav.keys()} and text={sample.text.keys()}"
-            f"but got '{condition}' of type '{condition_type}'!"
+            f" but got '{condition}' of type '{condition_type}'!"
         )
 
-    if condition_type == "wav":
-        wav, length, path = sample.wav[condition]
-        sample.wav[condition] = nullify_wav(wav)
+    if condition_type == 'wav':
+        wav_cond = sample.wav[condition]
+        sample.wav[condition] = nullify_wav(wav_cond)
+    elif condition_type == 'joint_embed':
+        embed = sample.joint_embed[condition]
+        sample.joint_embed[condition] = nullify_joint_embed(embed)
     else:
         sample.text[condition] = None
 
@@ -631,7 +486,7 @@ def dropout_condition(sample: ConditioningAttributes, condition_type: str, condi
 
 
 class DropoutModule(nn.Module):
-    """Base class for all dropout modules."""
+    """Base module for all dropout modules."""
     def __init__(self, seed: int = 1234):
         super().__init__()
         self.rng = torch.Generator()
@@ -639,10 +494,11 @@ class DropoutModule(nn.Module):
 
 
 class AttributeDropout(DropoutModule):
-    """Applies dropout with a given probability per attribute. This is different from the behavior of
-    ClassifierFreeGuidanceDropout as this allows for attributes to be dropped out separately. For example,
-    "artist" can be dropped while "genre" remains. This is in contrast to ClassifierFreeGuidanceDropout
-    where if "artist" is dropped "genre" must also be dropped.
+    """Dropout with a given probability per attribute.
+    This is different from the behavior of ClassifierFreeGuidanceDropout as this allows for attributes
+    to be dropped out separately. For example, "artist" can be dropped while "genre" remains.
+    This is in contrast to ClassifierFreeGuidanceDropout where if "artist" is dropped "genre"
+    must also be dropped.
 
     Args:
         p (tp.Dict[str, float]): A dict mapping between attributes and dropout probability. For example:
@@ -665,21 +521,19 @@ class AttributeDropout(DropoutModule):
     def forward(self, samples: tp.List[ConditioningAttributes]) -> tp.List[ConditioningAttributes]:
         """
         Args:
-            samples (tp.List[ConditioningAttributes]): List of conditions.
+            samples (list[ConditioningAttributes]): List of conditions.
         Returns:
-            tp.List[ConditioningAttributes]: List of conditions after certain attributes were set to None.
+            list[ConditioningAttributes]: List of conditions after certain attributes were set to None.
         """
         if not self.training and not self.active_on_eval:
             return samples
 
         samples = deepcopy(samples)
-
         for condition_type, ps in self.p.items():  # for condition types [text, wav]
             for condition, p in ps.items():  # for attributes of each type (e.g., [artist, genre])
                 if torch.rand(1, generator=self.rng).item() < p:
                     for sample in samples:
                         dropout_condition(sample, condition_type, condition)
-
         return samples
 
     def __repr__(self):
@@ -687,8 +541,8 @@ class AttributeDropout(DropoutModule):
 
 
 class ClassifierFreeGuidanceDropout(DropoutModule):
-    """Applies Classifier Free Guidance dropout, meaning all attributes
-    are dropped with the same probability.
+    """Classifier Free Guidance dropout.
+    All attributes are dropped with the same probability.
 
     Args:
         p (float): Probability to apply condition dropout during training.
@@ -701,9 +555,9 @@ class ClassifierFreeGuidanceDropout(DropoutModule):
     def forward(self, samples: tp.List[ConditioningAttributes]) -> tp.List[ConditioningAttributes]:
         """
         Args:
-            samples (tp.List[ConditioningAttributes]): List of conditions.
+            samples (list[ConditioningAttributes]): List of conditions.
         Returns:
-            tp.List[ConditioningAttributes]: List of conditions after all attributes were set to None.
+            list[ConditioningAttributes]: List of conditions after all attributes were set to None.
         """
         if not self.training:
             return samples
@@ -715,12 +569,10 @@ class ClassifierFreeGuidanceDropout(DropoutModule):
 
         # nullify conditions of all attributes
         samples = deepcopy(samples)
-
         for condition_type in ["wav", "text"]:
             for sample in samples:
                 for condition in sample.attributes[condition_type]:
                     dropout_condition(sample, condition_type, condition)
-
         return samples
 
     def __repr__(self):
@@ -728,74 +580,63 @@ class ClassifierFreeGuidanceDropout(DropoutModule):
 
 
 class ConditioningProvider(nn.Module):
-    """Main class to provide conditions given all the supported conditioners.
+    """Prepare and provide conditions given all the supported conditioners.
 
     Args:
         conditioners (dict): Dictionary of conditioners.
-        merge_text_conditions_p (float, optional): Probability to merge all text sources
-            into a single text condition. Defaults to 0.
-        drop_desc_p (float, optional): Probability to drop the original description
-            when merging all text sources into a single text condition. Defaults to 0.
-        device (tp.Union[torch.device, str], optional): Device for conditioners and output condition types.
+        device (torch.device or str, optional): Device for conditioners and output condition types.
     """
-    def __init__(
-        self,
-        conditioners: tp.Dict[str, BaseConditioner],
-        merge_text_conditions_p: float = 0,
-        drop_desc_p: float = 0,
-        device: tp.Union[torch.device, str] = "cpu",
-    ):
+    def __init__(self, conditioners: tp.Dict[str, BaseConditioner], device: tp.Union[torch.device, str] = "cpu"):
         super().__init__()
-        self.device = device
-        self.merge_text_conditions_p = merge_text_conditions_p
-        self.drop_desc_p = drop_desc_p
+        #self.device = device
         self.conditioners = nn.ModuleDict(conditioners)
+
+    @property
+    def has_joint_embed_conditions(self):
+        return len(self.joint_embed_conditions) > 0
 
     @property
     def text_conditions(self):
         return [k for k, v in self.conditioners.items() if isinstance(v, TextConditioner)]
 
     @property
-    def wav_conditions(self):
-        return [k for k, v in self.conditioners.items() if isinstance(v, WaveformConditioner)]
-
-    @property
     def has_wav_condition(self):
         return len(self.wav_conditions) > 0
 
-    def tokenize(self, inputs: tp.List[ConditioningAttributes]) -> tp.Dict[str, tp.Any]:
+    def tokenize(self, inputs: tp.List[ConditioningAttributes], device) -> tp.Dict[str, tp.Any]:
         """Match attributes/wavs with existing conditioners in self, and compute tokenize them accordingly.
         This should be called before starting any real GPU work to avoid synchronization points.
         This will return a dict matching conditioner names to their arbitrary tokenized representations.
 
         Args:
-            inputs (list[ConditioningAttribres]): List of ConditioningAttributes objects containing
+            inputs (list[ConditioningAttributes]): List of ConditioningAttributes objects containing
                 text and wav conditions.
         """
-        assert all([type(x) == ConditioningAttributes for x in inputs]), \
-            "got unexpected types input for conditioner! should be tp.List[ConditioningAttributes]" \
+        assert all([isinstance(x, ConditioningAttributes) for x in inputs]), (
+            "Got unexpected types input for conditioner! should be tp.List[ConditioningAttributes]",
             f" but types were {set([type(x) for x in inputs])}"
+        )
 
         output = {}
         text = self._collate_text(inputs)
-        wavs = self._collate_wavs(inputs)
 
-        assert set(text.keys() | wavs.keys()).issubset(set(self.conditioners.keys())), \
-            f"got an unexpected attribute! Expected {self.conditioners.keys()}, got {text.keys(), wavs.keys()}"
+        assert set(text.keys()).issubset(set(self.conditioners.keys())), (
+            f"Got an unexpected attribute! Expected {self.conditioners.keys()}, ",
+            f"got {text.keys()}"
+        )
 
-        for attribute, batch in chain(text.items(), wavs.items()):
-            output[attribute] = self.conditioners[attribute].tokenize(batch)
+        for attribute, batch in text.items():
+            output[attribute] = self.conditioners[attribute].tokenize(batch, device)
         return output
 
     def forward(self, tokenized: tp.Dict[str, tp.Any]) -> tp.Dict[str, ConditionType]:
-        """Compute pairs of `(embedding, mask)` using the configured conditioners
-        and the tokenized representations. The output is for example:
-
-            {
-                "genre": (torch.Tensor([B, 1, D_genre]), torch.Tensor([B, 1])),
-                "description": (torch.Tensor([B, T_desc, D_desc]), torch.Tensor([B, T_desc])),
-                ...
-            }
+        """Compute pairs of `(embedding, mask)` using the configured conditioners and the tokenized representations.
+        The output is for example:
+        {
+            "genre": (torch.Tensor([B, 1, D_genre]), torch.Tensor([B, 1])),
+            "description": (torch.Tensor([B, T_desc, D_desc]), torch.Tensor([B, T_desc])),
+            ...
+        }
 
         Args:
             tokenized (dict): Dict of tokenized representations as returned by `tokenize()`.
@@ -820,51 +661,22 @@ class ConditioningProvider(nn.Module):
             "genre": ["Rock", "Hip-hop"],
             "description": ["A rock song with a guitar solo", "A hip-hop verse"]
         }
+
+        Args:
+            samples (list of ConditioningAttributes): List of ConditioningAttributes samples.
+        Returns:
+            dict[str, list[str, optional]]: A dictionary mapping an attribute name to text batch.
         """
-        batch_per_attribute: tp.Dict[str, tp.List[tp.Optional[str]]] = defaultdict(list)
-
-        def _merge_conds(cond, merge_text_conditions_p=0, drop_desc_p=0):
-            def is_valid(k, v):
-                k_valid = k in ['key', 'bpm', 'genre', 'moods', 'instrument']
-                v_valid = v is not None and isinstance(v, (int, float, str, list))
-                return k_valid and v_valid
-
-            def process_value(v):
-                if isinstance(v, (int, float, str)):
-                    return v
-                if isinstance(v, list):
-                    return ", ".join(v)
-                else:
-                    RuntimeError(f"unknown type for text value! ({type(v), v})")
-
-            desc = cond.text['description']
-            meta_data = ""
-            if random.uniform(0, 1) < merge_text_conditions_p:
-                meta_pairs = [f'{k}: {process_value(v)}' for k, v in cond.text.items() if is_valid(k, v)]
-                random.shuffle(meta_pairs)
-                meta_data = ". ".join(meta_pairs)
-                desc = desc if not random.uniform(0, 1) < drop_desc_p else None
-
-            if desc is None:
-                desc = meta_data if len(meta_data) > 1 else None
-            else:
-                desc = desc.rstrip('.') + ". " + meta_data
-            cond.text['description'] = desc.strip() if desc else None
-
-        if self.training and self.merge_text_conditions_p:
-            for sample in samples:
-                _merge_conds(sample, self.merge_text_conditions_p, self.drop_desc_p)
-
+        out: tp.Dict[str, tp.List[tp.Optional[str]]] = defaultdict(list)
         texts = [x.text for x in samples]
         for text in texts:
             for condition in self.text_conditions:
-                batch_per_attribute[condition].append(text[condition])
+                out[condition].append(text[condition])
+        return out
 
-        return batch_per_attribute
-
-    def _collate_wavs(self, samples: tp.List[ConditioningAttributes]):
+    def _collate_wavs(self, samples: tp.List[ConditioningAttributes]) -> tp.Dict[str, WavCondition]:
         """Generate a dict where the keys are attributes by which we fetch similar wavs,
-        and the values are Tensors of wavs according to said attribtues.
+        and the values are Tensors of wavs according to said attributes.
 
         *Note*: by the time the samples reach this function, each sample should have some waveform
         inside the "wav" attribute. It should be either:
@@ -873,27 +685,89 @@ class ConditioningProvider(nn.Module):
         3. A null waveform due to it being dropped in a dropout module (nullified by dropout)
 
         Args:
-            samples (tp.List[ConditioningAttributes]): List of ConditioningAttributes samples.
+            samples (list of ConditioningAttributes): List of ConditioningAttributes samples.
         Returns:
-            dict: A dicionary mapping an attribute name to wavs.
+            dict[str, WavCondition]: A dictionary mapping an attribute name to wavs.
         """
         wavs = defaultdict(list)
-        lens = defaultdict(list)
+        lengths = defaultdict(list)
+        sample_rates = defaultdict(list)
         paths = defaultdict(list)
-        out = {}
+        seek_times = defaultdict(list)
+        out: tp.Dict[str, WavCondition] = {}
 
         for sample in samples:
             for attribute in self.wav_conditions:
-                wav, length, path = sample.wav[attribute]
-                wavs[attribute].append(wav.flatten())
-                lens[attribute].append(length)
-                paths[attribute].append(path)
+                wav, length, sample_rate, path, seek_time = sample.wav[attribute]
+                assert wav.dim() == 3, f"Got wav with dim={wav.dim()}, but expected 3 [1, C, T]"
+                assert wav.size(0) == 1, f"Got wav [B, C, T] with shape={wav.shape}, but expected B == 1"
+                # mono-channel conditioning
+                wav = wav.mean(1, keepdim=True)  # [1, 1, T]
+                wavs[attribute].append(wav.flatten())  # [T]
+                lengths[attribute].append(length)
+                sample_rates[attribute].extend(sample_rate)
+                paths[attribute].extend(path)
+                seek_times[attribute].extend(seek_time)
 
         # stack all wavs to a single tensor
         for attribute in self.wav_conditions:
             stacked_wav, _ = collate(wavs[attribute], dim=0)
-            out[attribute] = WavCondition(stacked_wav.unsqueeze(1),
-                                          torch.cat(lens['self_wav']), paths[attribute])  # type: ignore
+            out[attribute] = WavCondition(
+                stacked_wav.unsqueeze(1), torch.cat(lengths[attribute]), sample_rates[attribute],
+                paths[attribute], seek_times[attribute])
+
+        return out
+
+    def _collate_joint_embeds(self, samples: tp.List[ConditioningAttributes]) -> tp.Dict[str, JointEmbedCondition]:
+        """Generate a dict where the keys are attributes by which we compute joint embeddings,
+        and the values are Tensors of pre-computed embeddings and the corresponding text attributes.
+
+        Args:
+            samples (list[ConditioningAttributes]): List of ConditioningAttributes samples.
+        Returns:
+            A dictionary mapping an attribute name to joint embeddings.
+        """
+        texts = defaultdict(list)
+        wavs = defaultdict(list)
+        lengths = defaultdict(list)
+        sample_rates = defaultdict(list)
+        paths = defaultdict(list)
+        seek_times = defaultdict(list)
+        channels: int = 0
+
+        out = {}
+        for sample in samples:
+            for attribute in self.joint_embed_conditions:
+                wav, text, length, sample_rate, path, seek_time = sample.joint_embed[attribute]
+                assert wav.dim() == 3
+                if channels == 0:
+                    channels = wav.size(1)
+                else:
+                    assert channels == wav.size(1), "not all audio has same number of channels in batch"
+                assert wav.size(0) == 1, "Expecting single-wav batch in the collate method"
+                wav = einops.rearrange(wav, "b c t -> (b c t)")  # [1, C, T] => [C * T]
+                wavs[attribute].append(wav)
+                texts[attribute].extend(text)
+                lengths[attribute].append(length)
+                sample_rates[attribute].extend(sample_rate)
+                paths[attribute].extend(path)
+                seek_times[attribute].extend(seek_time)
+
+        for attribute in self.joint_embed_conditions:
+            stacked_texts = texts[attribute]
+            stacked_paths = paths[attribute]
+            stacked_seek_times = seek_times[attribute]
+            stacked_wavs = pad_sequence(wavs[attribute]).to(self.device)
+            stacked_wavs = einops.rearrange(stacked_wavs, "(c t) b -> b c t", c=channels)
+            stacked_sample_rates = sample_rates[attribute]
+            stacked_lengths = torch.cat(lengths[attribute]).to(self.device)
+            assert stacked_lengths.size(0) == stacked_wavs.size(0)
+            assert len(stacked_sample_rates) == stacked_wavs.size(0)
+            assert len(stacked_texts) == stacked_wavs.size(0)
+            out[attribute] = JointEmbedCondition(
+                text=stacked_texts, wav=stacked_wavs,
+                length=stacked_lengths, sample_rate=stacked_sample_rates,
+                path=stacked_paths, seek_time=stacked_seek_times)
 
         return out
 
@@ -920,7 +794,7 @@ class ConditionFuser(StreamingModule):
         super().__init__()
         assert all(
             [k in self.FUSING_METHODS for k in fuse2cond.keys()]
-        ), f"got invalid fuse method, allowed methods: {self.FUSING_MEHTODS}"
+        ), f"Got invalid fuse method, allowed methods: {self.FUSING_METHODS}"
         self.cross_attention_pos_emb = cross_attention_pos_emb
         self.cross_attention_pos_emb_scale = cross_attention_pos_emb_scale
         self.fuse2cond: tp.Dict[str, tp.List[str]] = fuse2cond
@@ -931,16 +805,16 @@ class ConditionFuser(StreamingModule):
 
     def forward(
         self,
-        input: Tensor,
+        input: torch.Tensor,
         conditions: tp.Dict[str, ConditionType]
-    ) -> tp.Tuple[Tensor, tp.Optional[Tensor]]:
+    ) -> tp.Tuple[torch.Tensor, tp.Optional[torch.Tensor]]:
         """Fuse the conditions to the provided model input.
 
         Args:
-            input (Tensor): Transformer input.
-            conditions (tp.Dict[str, ConditionType]): Dict of conditions.
+            input (torch.Tensor): Transformer input.
+            conditions (dict[str, ConditionType]): Dict of conditions.
         Returns:
-            tp.Tuple[Tensor, Tensor]: The first tensor is the transformer input
+            tuple[torch.Tensor, torch.Tensor]: The first tensor is the transformer input
                 after the conditions have been fused. The second output tensor is the tensor
                 used for cross-attention or None if no cross attention inputs exist.
         """
@@ -959,16 +833,16 @@ class ConditionFuser(StreamingModule):
         cross_attention_output = None
         for cond_type, (cond, cond_mask) in conditions.items():
             op = self.cond2fuse[cond_type]
-            if op == "sum":
+            if op == 'sum':
                 input += cond
-            elif op == "input_interpolate":
-                cond = rearrange(cond, "b t d -> b d t")
+            elif op == 'input_interpolate':
+                cond = einops.rearrange(cond, "b t d -> b d t")
                 cond = F.interpolate(cond, size=input.shape[1])
-                input += rearrange(cond, "b d t -> b t d")
-            elif op == "prepend":
+                input += einops.rearrange(cond, "b d t -> b t d")
+            elif op == 'prepend':
                 if first_step:
                     input = torch.cat([cond, input], dim=1)
-            elif op == "cross":
+            elif op == 'cross':
                 if cross_attention_output is not None:
                     cross_attention_output = torch.cat([cross_attention_output, cond], dim=1)
                 else:

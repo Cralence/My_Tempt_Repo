@@ -7,10 +7,10 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import LambdaLR
 
 from unimumo.util import instantiate_from_config
-from unimumo.audio.audiocraft_new.models.mm_lm import LMModel, ConditionTensors
-from unimumo.audio.audiocraft_new.models.builders import get_debug_lm_model
-from unimumo.audio.audiocraft_new.models.loaders import load_mm_lm_model
-from unimumo.audio.audiocraft_new.modules.conditioners import ConditioningAttributes, WavCondition
+from unimumo.audio.audiocraft_.models.mm_lm import LMModel, ConditionTensors
+from unimumo.audio.audiocraft_.models.builders import get_debug_lm_model
+from unimumo.audio.audiocraft_.models.loaders import load_mm_lm_model
+from unimumo.audio.audiocraft_.modules.conditioners import ConditioningAttributes, WavCondition
 
 
 MelodyList = tp.List[tp.Optional[torch.Tensor]]
