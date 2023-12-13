@@ -32,6 +32,7 @@ data:
   params:
     batch_size: 30
     wrap: True
+    num_workers: 8
     train:
       target: unimumo.data.music_motion_dataset.MusicMotionDataset
       params:
@@ -64,15 +65,17 @@ data:
 lightning:
   callbacks:
     video_logger:
-      target: unimumo.joint_vae_logger.MusicMotionLogger
+      target: unimumo.loggers.MotionVQVAELogger
       params:
-        batch_frequency: 7000
-        max_videos: 4
-        increase_log_steps: True
-        #motion_dir: 'D:/local_documentation/deep_learning/ChuangGan/motion_data'
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
+        epoch_frequency: 10
+        batch_frequency: 2000
+        max_video_per_generation: 4
+        max_video_logged: 120
+        disabled: False
 
   trainer:
     benchmark: True
-    gpus: "0,1,2,3"
-    num_nodes: 2
+    devices: 6
+    num_nodes: 8
+    strategy: ddp

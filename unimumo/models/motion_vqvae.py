@@ -182,12 +182,12 @@ class MotionVQVAE(pl.LightningModule):
         return [opt_ae], []
 
     @torch.no_grad()
-    def log_videos(self, batch, motion_mean=None, motion_std=None):
-        inputs = self.get_input(batch, self.music_key, self.motion_key)
-        motion_recon, _ = self(inputs)
-        gt_waveform = batch[self.music_key].unsqueeze(1).detach().cpu().numpy()
-        waveform = gt_waveform
+    def log_videos(
+        self, batch: tp.Dict[str, torch.Tensor], motion_mean: np.ndarray, motion_std: np.ndarray
+    ) -> tp.Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        motion_recon, _ = self(batch)
+        waveform = batch[self.music_key].unsqueeze(1).detach().cpu().numpy()
 
         joint = self.motion_vec_to_joint(motion_recon, motion_mean, motion_std)
         gt_joint = self.motion_vec_to_joint(batch[self.motion_key], motion_mean, motion_std)
-        return waveform, joint, gt_waveform, gt_joint
+        return waveform, joint, gt_joint

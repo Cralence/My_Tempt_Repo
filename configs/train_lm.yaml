@@ -80,7 +80,7 @@ data:
 lightning:
   callbacks:
     video_logger:
-      target: unimumo.mm_transformer_logger.MusicLogger
+      target: unimumo.loggers.MusicMotionLogger
       params:
         music_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
         motion_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt'
