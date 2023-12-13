@@ -185,18 +185,3 @@ class Decoder(nn.Module):
         x = nn.functional.interpolate(x, target_T, mode='linear')
 
         return x
-
-
-
-if __name__ == '__main__':
-    encoder = Encoder()
-    decoder = Decoder()
-    print('encoder: ', sum(p.numel() for p in encoder.parameters()), f', decoder: {sum(p.numel() for p in decoder.parameters())}')
-
-    x = torch.randn(3, 263, 200)
-    emb = encoder(x)
-    print(emb.shape)
-    recon = decoder(emb)
-    print(recon.shape)
-
-
