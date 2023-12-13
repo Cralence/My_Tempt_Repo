@@ -54,7 +54,7 @@ data:
     train:
       target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
-        split: "val"
+        split: "train"
         music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
         motion_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         music_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_codes'
@@ -96,5 +96,5 @@ lightning:
   trainer:
     benchmark: True
     devices: 6
-    num_nodes: 1
+    num_nodes: 8
     strategy: ddp
