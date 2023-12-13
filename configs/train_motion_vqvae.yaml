@@ -1,16 +1,16 @@
 model:
   base_learning_rate: 2e-4
-  target: unimumo.models.motion_vqvae.MM_VQVAE
+  target: unimumo.models.motion_vqvae.MotionVQVAE
   params:
     monitor: "val/rec_loss"
     music_key: "waveform"
     motion_key: "motion"
-    lossconfig:
-      target: unimumo.modules.losses.mm_vqvae_loss.MusicMotion_VQVAE_Loss_v3
+    loss_config:
+      target: unimumo.modules.loss.MotionVqVaeLoss
       params:
         commitment_loss_weight: 0.02
         motion_weight: 1.0
-    motion_ddconfig:
+    motion_config:
       input_dim: 263
       output_dim: 128
       emb_dim_encoder: [ 256, 224, 192, 144, 128 ]
@@ -20,10 +20,10 @@ model:
       dilation_growth_rate: 2
       depth_per_res_block: 6
       activation: 'relu'
-    music_ddconfig:
+    music_config:
       #vqvae_ckpt: 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin'
       vqvae_ckpt: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
-    pre_post_quantize_ddconfig:
+    pre_post_quantize_config:
       pre_quant_conv_mult: 4
       post_quant_conv_mult: 4
 

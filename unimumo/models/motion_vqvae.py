@@ -1,12 +1,16 @@
+import numpy as np
+
 from unimumo.util import instantiate_from_config
 import torch
 from omegaconf import OmegaConf
 import torch.nn as nn
 import pytorch_lightning as pl
 from einops import rearrange
+import typing as tp
 
-from unimumo.audio.audiocraft.models.builders import get_compression_model
-from unimumo.audio.audiocraft.quantization.vq import ResidualVectorQuantizer
+from unimumo.audio.audiocraft_new.models.builders import get_compression_model
+from unimumo.audio.audiocraft_new.quantization.vq import ResidualVectorQuantizer
+from unimumo.audio.audiocraft_new.modules.seanet import SEANetEncoder
 from unimumo.motion.motion_process import recover_from_ric
 from unimumo.modules.motion_vqvae_module import Encoder, Decoder
 
@@ -17,32 +21,33 @@ def disabled_train(self, mode=True):
     return self
 
 
-class MM_VQVAE(pl.LightningModule):
-    def __init__(self,
-                 music_ddconfig,
-                 motion_ddconfig,
-                 pre_post_quantize_ddconfig,
-                 lossconfig,
-                 ckpt_path=None,
-                 ignore_keys=[],
-                 music_key="waveform",
-                 motion_key="motion",
-                 monitor=None,
-                 ):
+class MotionVQVAE(pl.LightningModule):
+    def __init__(
+        self,
+        music_config: dict,
+        motion_config: dict,
+        pre_post_quantize_config: dict,
+        loss_config: dict,
+        ckpt_path: tp.Optional[str] = None,
+        ignore_keys: tp.Optional[tp.List[str]] = None,
+        music_key: str = "waveform",
+        motion_key: str = "motion",
+        monitor: tp.Optional[str] = None,
+    ):
         super().__init__()
         self.motion_key = motion_key
         self.music_key = music_key
 
-        self.music_encoder, self.quantizer = self.instantiate_music_vqvae(**music_ddconfig)
+        self.music_encoder, self.quantizer = self.instantiate_music_vqvae(**music_config)
 
-        self.motion_encoder = Encoder(**motion_ddconfig)
-        self.motion_decoder = Decoder(**motion_ddconfig)
+        self.motion_encoder = Encoder(**motion_config)
+        self.motion_decoder = Decoder(**motion_config)
 
         # instantiate new codebook
-        joint_dimension = 128 + motion_ddconfig['output_dim']
+        joint_dimension = 128 + motion_config['output_dim']
 
         # instantiate the modules before quantizer
-        pre_quant_conv_mult = pre_post_quantize_ddconfig['pre_quant_conv_mult']
+        pre_quant_conv_mult = pre_post_quantize_config['pre_quant_conv_mult']
         self.pre_quantize_conv = nn.Sequential(
             nn.Conv1d(joint_dimension, joint_dimension, 1),
             nn.ELU(),
@@ -50,11 +55,11 @@ class MM_VQVAE(pl.LightningModule):
             nn.ELU(),
             nn.Conv1d(joint_dimension * pre_quant_conv_mult, joint_dimension, 3, 1, 1),
             nn.ELU(),
-            nn.Conv1d(joint_dimension, motion_ddconfig['output_dim'], 1)
+            nn.Conv1d(joint_dimension, motion_config['output_dim'], 1)
         )
 
         # instantiate the modules after quantizer
-        post_quant_conv_mult = pre_post_quantize_ddconfig['post_quant_conv_mult']
+        post_quant_conv_mult = pre_post_quantize_config['post_quant_conv_mult']
         self.post_quantize_conv = nn.Sequential(
             nn.Conv1d(joint_dimension, joint_dimension, 1),
             nn.ELU(),
@@ -62,28 +67,29 @@ class MM_VQVAE(pl.LightningModule):
             nn.ELU(),
             nn.Conv1d(joint_dimension * post_quant_conv_mult, joint_dimension, 3, 1, 1),
             nn.ELU(),
-            nn.Conv1d(joint_dimension, motion_ddconfig['output_dim'], 1)
+            nn.Conv1d(joint_dimension, motion_config['output_dim'], 1)
         )
 
-        self.loss = instantiate_from_config(lossconfig)
+        self.loss = instantiate_from_config(loss_config)
 
         if monitor is not None:
             self.monitor = monitor
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
 
-    def init_from_ckpt(self, path, ignore_keys=list()):
+    def init_from_ckpt(self, path: str, ignore_keys: tp.Optional[tp.List[str]] = None):
         sd = torch.load(path, map_location="cpu")["state_dict"]
-        keys = list(sd.keys())
-        for k in keys:
-            for ik in ignore_keys:
-                if k.startswith(ik):
-                    print("Deleting key {} from state_dict.".format(k))
-                    del sd[k]
+        if ignore_keys is not None:
+            keys = list(sd.keys())
+            for k in keys:
+                for ik in ignore_keys:
+                    if k.startswith(ik):
+                        print("Deleting key {} from state_dict.".format(k))
+                        del sd[k]
         self.load_state_dict(sd, strict=False)
         print(f"Restored from {path}")
 
-    def instantiate_music_vqvae(self, vqvae_ckpt):
+    def instantiate_music_vqvae(self, vqvae_ckpt: str) -> tp.Tuple[SEANetEncoder, ResidualVectorQuantizer]:
         pkg = torch.load(vqvae_ckpt, map_location='cpu')
         cfg = OmegaConf.create(pkg['xp.cfg'])
         model = get_compression_model(cfg)
@@ -99,59 +105,44 @@ class MM_VQVAE(pl.LightningModule):
 
         return encoder, quantizer
 
-    def encode(self, inputs):
-        x_motion = inputs['motion']  # B, T1, D1
-        x_music = inputs['music']
-
+    def encode(
+        self, x_music: torch.Tensor, x_motion: torch.Tensor
+    ) -> tp.Tuple[torch.Tensor, torch.Tensor]:
+        # x_music: [bs, 1, 32000 x T], x_motion: [bs, 20 x T, 263]
         assert x_music.dim() == 3
         with torch.no_grad():
-            music_emb = self.music_encoder(x_music)  # B, 128, T
+            music_emb = self.music_encoder(x_music)  # [B, 128, 50 x T]
 
         assert x_motion.dim() == 3
         x_motion = rearrange(x_motion, 'b t d -> b d t')
-        motion_emb = self.motion_encoder(x_motion)  # B, 128, T
+        motion_emb = self.motion_encoder(x_motion)  # [B, 128, 50 x T]
 
         # pre quant residual module
-        x_catted = torch.cat((music_emb, motion_emb), dim=1)  # B, 256, T
+        x_catted = torch.cat((music_emb, motion_emb), dim=1)  # [B, 256, 50 x T]
         ff_emb = self.pre_quantize_conv(x_catted)
-        motion_emb = motion_emb + ff_emb  # B, 128, T
+        motion_emb = motion_emb + ff_emb  # [B, 128, 50 x T]
 
         return music_emb, motion_emb
 
-    def encode_with_music_token(self, x_motion, music_emb):  # x_motion: B, T, 263
-        assert x_motion.dim() == 3
-        x_motion = rearrange(x_motion, 'b t d -> b d t')
-        motion_emb = self.motion_encoder(x_motion)  # B, 128, T
-
-        # pre quant residual module
-        x_catted = torch.cat((music_emb, motion_emb), dim=1)  # B, 256, T
-        ff_emb = self.pre_quantize_conv(x_catted)
-        motion_emb = motion_emb + ff_emb  # B, 128, T
-
-        # quantize
-        q_res_music = self.quantizer(music_emb, 50)  # 50 is the fixed sample rate
-        q_res_motion = self.quantizer(motion_emb, 50)
-
-        return q_res_music.x, q_res_motion.x
-
-    def decode(self, music_emb, motion_emb):
+    def decode(self, music_emb: torch.Tensor, motion_emb: torch.Tensor) -> torch.Tensor:
+        # music_emb: [B, 128, 50 x T], motion_emb: [B, 128, 50 x T]
         # post quant residual module
-        x_catted = torch.cat((music_emb, motion_emb), dim=1)
+        x_catted = torch.cat((music_emb, motion_emb), dim=1)  # [B, 256, 50 x T]
         ff_emb = self.post_quantize_conv(x_catted)
-        motion_emb = motion_emb + ff_emb
+        motion_emb = motion_emb + ff_emb  # [B, 128, 50 x T]
 
         motion_recon = self.motion_decoder(motion_emb)
-        motion_recon = rearrange(motion_recon, 'b d t -> b t d')
+        motion_recon = rearrange(motion_recon, 'b d t -> b t d')  # [bs, 20 x T, 263]
 
         return motion_recon
 
-    def decode_from_code(self, music_code, motion_code):
+    def decode_from_code(self, music_code: torch.Tensor, motion_code: torch.Tensor):
         music_emb = self.quantizer.decode(music_code)
         motion_emb = self.quantizer.decode(motion_code)
         return self.decode(music_emb, motion_emb)
 
-    def forward(self, input):
-        music_emb, motion_emb = self.encode(input)
+    def forward(self, batch: tp.Dict[str, torch.Tensor]) -> tp.Tuple[torch.Tensor, torch.Tensor]:
+        music_emb, motion_emb = self.encode(batch[self.music_key], batch[self.motion_key])
 
         q_res_music = self.quantizer(music_emb, 50)  # 50 is the fixed sample rate
         q_res_motion = self.quantizer(motion_emb, 50)
@@ -160,51 +151,34 @@ class MM_VQVAE(pl.LightningModule):
 
         return motion_recon, q_res_motion.penalty  # penalty is the commitment loss
 
-    @torch.no_grad()
-    def encode_music_first_stage(self, x):
-        return self.music_vae_model.encode(x)  # !!! not modified yet
-
-    def motion_vec_to_joint(self, vec, motion_mean, motion_std):
-        # vec: [bs, 200, 263]
+    def motion_vec_to_joint(self, vec: torch.Tensor, motion_mean: np.ndarray, motion_std: np.ndarray) -> np.ndarray:
+        # vec: [bs, 20 x T, 263]
         mean = torch.tensor(motion_mean).to(vec)
         std = torch.tensor(motion_std).to(vec)
-        vec = vec*std + mean
+        vec = vec * std + mean
         joint = recover_from_ric(vec, joints_num=22)
         joint = joint.cpu().detach().numpy()
         return joint
 
-    def get_input(self, batch, music_k, motion_k, bs=None):
-        motion = batch[motion_k]
-        x_motion = motion.to(memory_format=torch.contiguous_format).float()
-        waveform = batch[music_k]
-        x_music = waveform.unsqueeze(1).to(memory_format=torch.contiguous_format).float()
-        if bs is not None:
-            x_motion = x_motion[:bs]
-            x_music = x_music[:bs]
-        x_music = x_music.to(self.device)
-        x_motion = x_motion.to(self.device) # B, 200, 263
-        return {'motion': x_motion, 'music': x_music}
+    def training_step(self, batch: tp.Dict[str, torch.Tensor], batch_idx: int):
+        motion_recon, commitment_loss = self(batch)
+        aeloss, log_dict_ae = self.loss(batch[self.motion_key], motion_recon, commitment_loss, split="train")
 
-    def training_step(self, batch, batch_idx):
-        inputs = self.get_input(batch, self.music_key, self.motion_key)
-        motion_recon, commitment_loss = self(inputs)
-        aeloss, log_dict_ae = self.loss(inputs, motion_recon, commitment_loss, split="train")
-
-        print(torch.mean(self.quantizer.vq.layers[0]._codebook.embed[0]))
-        if batch_idx % 20 == 0:
-            print(self.quantizer.vq.layers[0]._codebook.embed[0])
-
-        self.log("aeloss", aeloss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
-        self.log_dict(log_dict_ae, prog_bar=False, logger=True, on_step=True, on_epoch=False)
+        self.log("aeloss", aeloss, prog_bar=True, logger=True, on_step=True, on_epoch=False)
+        self.log_dict(log_dict_ae, prog_bar=True, logger=True, on_step=True, on_epoch=False)
+        for i in range(4):  # log max value of the codebooks to ensure that the codebook is not changed
+            self.log(
+                f'codebook layer {i+1} max', torch.max(self.quantizer.vq.layers[i]._codebook.embed).item(),
+                prog_bar=True, logger=True, on_step=True, on_epoch=False
+            )
         return aeloss
 
-    def validation_step(self, batch, batch_idx):
-        inputs = self.get_input(batch, self.music_key, self.motion_key)
-        motion_recon, commitment_loss = self(inputs)
-        aeloss, log_dict_ae = self.loss(inputs, motion_recon, commitment_loss, split="val")
+    def validation_step(self, batch: tp.Dict[str, torch.Tensor], batch_idx: int):
+        motion_recon, commitment_loss = self(batch)
+        aeloss, log_dict_ae = self.loss(batch[self.motion_key], motion_recon, commitment_loss, split="val")
 
-        self.log("val/rec_loss", log_dict_ae["val/rec_loss"])
-        self.log_dict(log_dict_ae)
+        self.log("val/rec_loss", log_dict_ae["val/rec_loss"], prog_bar=True, logger=True, on_step=True, on_epoch=True)
+        self.log_dict(log_dict_ae, prog_bar=True, logger=True, on_step=True, on_epoch=True)
         return self.log_dict
 
     def configure_optimizers(self):
@@ -222,64 +196,3 @@ class MM_VQVAE(pl.LightningModule):
         joint = self.motion_vec_to_joint(motion_recon, motion_mean, motion_std)
         gt_joint = self.motion_vec_to_joint(batch[self.motion_key], motion_mean, motion_std)
         return waveform, joint, gt_waveform, gt_joint
-
-
-if __name__ == "__main__":
-    lossconfig = {
-        'target': 'unimumo.modules.losses.mm_vqvae_loss.MusicMotion_VQVAE_Loss_v2',
-        'params': {'commitment_loss_weight': 0.02}
-    }
-
-    motion_ddconfig = {
-        'input_dim': 263,
-        'output_dim': 16,
-        'emb_dim_encoder': [256, 128, 32, 16],
-        'emb_dim_decoder': [16, 32, 128, 256],
-        'input_fps': 20,
-        'rvq_fps': 50,
-        'dilation_growth_rate': 2,
-        'depth_per_res_block': 1,
-        'activation': 'relu'
-    }
-
-    music_ddconfig = {
-        'vqvae_ckpt': 'C:\\Users\\Mahlering\\.cache\\huggingface\\hub\\models--facebook--musicgen-small\\snapshots\\bf842007f70cf1b174daa4f42b5e45a21d59d3ec\\compression_state_dict.bin',
-        'use_pretrained': True,
-        'freeze_encoder': True,
-        'freeze_decoder': True,
-        'freeze_codebook': True
-    }
-
-    codebook_ddconfig = {
-        'n_q': 4,
-        'q_dropout': False,
-        'bins': 2048,
-        'decay': 0.99,
-        'kmeans_init': False,
-        'kmeans_iters': 50,
-        'threshold_ema_dead_code': 2,
-        'orthogonal_reg_weight': 0.0,
-        'orthogonal_reg_active_codes_only': False
-    }
-
-    pre_post_quantize_ddconfig = {
-        'pre_quant_conv_mult': 4,
-        'post_quant_conv_mult': 4,
-    }
-
-    model = MM_VQVAE(
-        music_ddconfig, motion_ddconfig, codebook_ddconfig,
-        pre_post_quantize_ddconfig, lossconfig
-    )
-
-    music = torch.randn((3, 1, 32000 * 10))
-    motion = torch.randn((3, 200, 263))
-
-    inputs = {'music': music, 'motion': motion}
-
-    #motion_recon, music_recon, commitment_loss = model(inputs)
-
-    print('here')
-
-
-
