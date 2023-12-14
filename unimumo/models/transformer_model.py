@@ -73,7 +73,8 @@ class MusicMotionTransformer(pl.LightningModule):
             assert mm_ckpt is not None, "The pretrained music motion model is not provided"
             # load the music motion lm part of the ckpt
             pretrained_sd = torch.load(mm_ckpt, map_location='cpu')['state_dict']
-            mm_lm_sd = {k: v for k, v in pretrained_sd.items() if k.startswith("model.")}
+            mm_lm_sd = {k: v for k, v in pretrained_sd.items() if k.startswith("model.")}  # find keys with prefix "model."
+            mm_lm_sd = {k[len("model."):]: v for k, v in mm_lm_sd.items()}  # remove the prefix "model."
             self.model.load_state_dict(mm_lm_sd)
             print(mm_lm_sd.keys(), "!!!!!!!!!!!!!!!!!!")
             print(self.model.state_dict().keys())
