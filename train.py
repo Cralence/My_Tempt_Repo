@@ -494,6 +494,8 @@ if __name__ == "__main__":
             config.data.params.batch_size = config.data.params.batch_size_music_motion
         else:
             config.data.params.batch_size = config.data.params.batch_size_caption
+        del config.data.params.batch_size_music_motion
+        del config.data.params.batch_size_caption
         data = instantiate_from_config(config.data)
         # NOTE according to https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html
         # calling these ourselves should not be necessary but it is.
