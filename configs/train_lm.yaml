@@ -48,7 +48,8 @@ model:
 data:
   target: train.DataModuleFromConfig
   params:
-    batch_size: 3
+    batch_size_music_motion: 3
+    batch_size_caption: 8
     wrap: True
     num_workers: 2
     train:

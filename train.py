@@ -489,6 +489,11 @@ if __name__ == "__main__":
         trainer.logdir = logdir  ###
 
         # data
+        # set the batch size for corresponding training stage
+        if opt.stage == "train_music_motion":
+            config.data.batch_size = config.data.batch_size_music_motion
+        else:
+            config.data.batch_size = config.data.batch_size_caption
         data = instantiate_from_config(config.data)
         # NOTE according to https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html
         # calling these ourselves should not be necessary but it is.
