@@ -120,13 +120,13 @@ def get_parser(**parser_kwargs):
         help="",
     )
 
-    # parser.add_argument(
-    #     "--mm_ckpt",
-    #     type=str,
-    #     required=False,
-    #     default=None,
-    #     help="",
-    # )
+    parser.add_argument(
+        "--mm_ckpt",
+        type=str,
+        required=False,
+        default=None,
+        help="",
+    )
 
     return parser
 
@@ -366,7 +366,7 @@ if __name__ == "__main__":
         lightning_config.trainer = trainer_config
 
         config.model.params.stage = opt.stage
-        # config.model.params.mm_ckpt = opt.mm_ckpt
+        config.model.params.mm_ckpt = opt.mm_ckpt
         # model
         model = instantiate_from_config(config.model)
 
