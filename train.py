@@ -325,9 +325,6 @@ if __name__ == "__main__":
         nowname = now + name + opt.postfix
         logdir = os.path.join(opt.logdir, nowname)
 
-    if opt.stage == "train_caption":
-        assert os.path.exists(opt.resume), "In training caption stage, a pretrained path should be provided!"
-
     ckptdir = os.path.join(logdir, "checkpoints")
     cfgdir = os.path.join(logdir, "configs")
     seed_everything(opt.seed)
