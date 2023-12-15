@@ -1,5 +1,4 @@
 import os
-import sys
 from os.path import join as pjoin
 import random
 import typing as tp
@@ -16,12 +15,12 @@ from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from pytorch_lightning import LightningModule, Trainer
 
 from unimumo.motion import skel_animation
-from unimumo.audio.audiocraft.models.builders import get_compression_model
+from unimumo.audio.audiocraft_.models.builders import get_compression_model
 from unimumo.util import instantiate_from_config
 from unimumo.motion.motion_process import recover_from_ric
 
 
-class MusicLogger(Callback):
+class MusicMotionLogger(Callback):
     def __init__(
         self, music_vqvae_path: str, motion_vqvae_config_path: str, motion_vqvae_path: str, motion_dir: str,
         motion_fps: int = 20, epoch_frequency: int = 10, batch_frequency: int = 2000,
@@ -76,11 +75,7 @@ class MusicLogger(Callback):
             music_filename = "e-{:06}_b-{:06}_music_{}_gen.mp3".format(current_epoch, batch_idx, i)
             music_path = os.path.join(root, music_filename)
             os.makedirs(os.path.split(music_path)[0], exist_ok=True)
-            try:
-                sf.write(music_path, music[i].squeeze().cpu().detach().numpy(), self.sr)
-            except:
-                print(f'{music_path} cannot be saved')
-                continue
+            sf.write(music_path, music[i].squeeze().cpu().detach().numpy(), self.sr)
 
             if motion is None or gt_music is None or gt_motion is None:
                 continue
@@ -88,11 +83,7 @@ class MusicLogger(Callback):
             gt_music_filename = "e-{:06}_b-{:06}_music_{}_ref.mp3".format(current_epoch, batch_idx, i)
             gt_music_path = os.path.join(root, gt_music_filename)
             os.makedirs(os.path.split(gt_music_path)[0], exist_ok=True)
-            try:
-                sf.write(gt_music_path, gt_music[i].squeeze().cpu().detach().numpy(), self.sr)
-            except:
-                print(f'{gt_music_path} cannot be saved')
-                continue
+            sf.write(gt_music_path, gt_music[i].squeeze().cpu().detach().numpy(), self.sr)
 
             motion_filename = "e-{:06}_b-{:06}_motion_{}.mp4".format(current_epoch, batch_idx, i)
             motion_path = os.path.join(root, motion_filename)
@@ -104,9 +95,7 @@ class MusicLogger(Callback):
             video_filename = "e-{:06}_b-{:06}_video_{}.mp4".format(current_epoch, batch_idx, i)
             video_path = os.path.join(root, video_filename)
             os.makedirs(os.path.split(video_path)[0], exist_ok=True)
-            subprocess.call(
-                f"ffmpeg -i {motion_path} -i {music_path} -c copy {video_path}", shell=True
-            )
+            subprocess.call(f"ffmpeg -i {motion_path} -i {music_path} -c copy {video_path}", shell=True)
 
             gt_motion_filename = "e-{:06}_b-{:06}_motion_{}_gt.mp4".format(current_epoch, batch_idx, i)
             gt_motion_path = os.path.join(root, gt_motion_filename)
@@ -118,9 +107,7 @@ class MusicLogger(Callback):
             gt_video_filename = "e-{:06}_b-{:06}_video_{}_gt.mp4".format(current_epoch, batch_idx, i)
             gt_video_path = os.path.join(root, gt_video_filename)
             os.makedirs(os.path.split(gt_video_path)[0], exist_ok=True)
-            subprocess.call(
-                f"ffmpeg -i {gt_motion_path} -i {gt_music_path} -c copy {gt_video_path}", shell=True
-            )
+            subprocess.call(f"ffmpeg -i {gt_motion_path} -i {gt_music_path} -c copy {gt_video_path}", shell=True)
 
             # only keeps video
             os.system(f'rm {music_path}')
@@ -137,9 +124,9 @@ class MusicLogger(Callback):
                 remove_path = os.path.join(root, name)
                 if os.path.exists(remove_path):
                     os.system(f'rm {remove_path}')
-                    print('removed: %s' % remove_path)
+                    print(f'removed: {remove_path}')
                 else:
-                    print('not found: %s' % remove_path)
+                    print(f'not found: {remove_path}')
 
     @rank_zero_only
     def log_video_with_caption(
@@ -181,9 +168,7 @@ class MusicLogger(Callback):
             )
 
     @rank_zero_only
-    def log_video(
-        self, pl_module: LightningModule, batch: Any, batch_idx: int, split: str
-    ) -> None:
+    def log_video(self, pl_module: LightningModule, batch: Any, batch_idx: int, split: str):
         if hasattr(pl_module, "generate_sample") and \
                 callable(pl_module.generate_sample) and \
                 batch_idx % self.batch_freq == 0 and \
@@ -285,7 +270,7 @@ class MusicLogger(Callback):
 
     def on_train_batch_end(
         self, trainer: Trainer, pl_module: LightningModule, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
-    ) -> None:
+    ):
         if not self.disabled and pl_module.current_epoch % self.epoch_freq == 0:
             self.log_video(pl_module, batch, batch_idx, split="train")
 
@@ -298,6 +283,134 @@ class MusicLogger(Callback):
     def on_validation_batch_end(
         self, trainer: Trainer, pl_module: LightningModule, outputs: Optional[STEP_OUTPUT],
         batch: Any, batch_idx: int, dataloader_idx: int = 0,
-    ) -> None:
+    ):
         if not self.disabled and pl_module.current_epoch % self.epoch_freq == 0:
             self.log_video(pl_module, batch, batch_idx, split="val")
+
+
+class MotionVQVAELogger(Callback):
+    def __init__(
+        self, motion_dir: str, epoch_frequency: int = 10, batch_frequency: int = 2000,
+        max_video_per_generation: int = 4, max_video_logged: int = 60, motion_fps: int = 20, disabled=False
+    ):
+        super().__init__()
+        self.disabled = disabled
+
+        # about saving motion and videos
+        self.kinematic_chain = [[0, 2, 5, 8, 11], [0, 1, 4, 7, 10], [0, 3, 6, 9, 12, 15], [9, 14, 17, 19, 21],
+                                [9, 13, 16, 18, 20]]
+        self.motion_dir = motion_dir
+        self.mean = np.load(pjoin(self.motion_dir, 'Mean.npy'))
+        self.std = np.load(pjoin(self.motion_dir, 'Std.npy'))
+        self.motion_fps = motion_fps
+
+        # about logging frequency and logging number
+        self.epoch_freq = epoch_frequency
+        self.batch_freq = batch_frequency
+        self.max_video_per_generation = max_video_per_generation
+        self.max_video_logged = max_video_logged
+
+    @rank_zero_only
+    def log_local(
+        self, save_dir: str, split: str, music: np.ndarray, motion: np.ndarray,
+        gt_motion: np.ndarray, global_step: int, current_epoch: int, batch_idx: int
+    ):
+        root = os.path.join(save_dir, "video_log", split)
+        print('save result root: ', root)
+
+        for i in range(music.shape[0]):
+            music_filename = "gs-{:06}_e-{:06}_b-{:06}_{}.mp3".format(global_step, current_epoch, batch_idx, i)
+            music_path = os.path.join(root, music_filename)
+            os.makedirs(os.path.split(music_path)[0], exist_ok=True)
+            sf.write(music_path, music[i].reshape(-1, 1), 32000)
+
+            motion_filename = "gs-{:06}_e-{:06}_b-{:06}_motion_{}.mp4".format(global_step, current_epoch, batch_idx, i)
+            motion_path = os.path.join(root, motion_filename)
+            os.makedirs(os.path.split(motion_path)[0], exist_ok=True)
+            skel_animation.plot_3d_motion(
+                motion_path, self.kinematic_chain, motion[i], title="None", vbeat=None, fps=self.motion_fps, radius=4
+            )
+            video_filename = "gs-{:06}_e-{:06}_b-{:06}_video_{}.mp4".format(global_step, current_epoch, batch_idx, i)
+            video_path = os.path.join(root, video_filename)
+            os.makedirs(os.path.split(video_path)[0], exist_ok=True)
+            subprocess.call(f"ffmpeg -i {motion_path} -i {music_path} -c copy {video_path}", shell=True)
+
+            gt_motion_filename = "gs-{:06}_e-{:06}_b-{:06}_motion_{}_gt.mp4".format(global_step, current_epoch, batch_idx, i)
+            gt_motion_path = os.path.join(root, gt_motion_filename)
+            os.makedirs(os.path.split(gt_motion_path)[0], exist_ok=True)
+            skel_animation.plot_3d_motion(
+                gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None, fps=self.motion_fps, radius=4
+            )
+            gt_video_filename = "gs-{:06}_e-{:06}_b-{:06}_video_{}_gt.mp4".format(global_step, current_epoch, batch_idx, i)
+            gt_video_path = os.path.join(root, gt_video_filename)
+            os.makedirs(os.path.split(gt_video_path)[0], exist_ok=True)
+            subprocess.call(f"ffmpeg -i {gt_motion_path} -i {music_path} -c copy {gt_video_path}", shell=True)
+
+            # only keeps video
+            os.system(f'rm {music_path}')
+            os.system(f'rm {motion_path}')
+            os.system(f'rm {gt_motion_path}')
+
+        # remove old videos
+        video_list = os.listdir(root)
+        video_list.sort()
+        if len(video_list) > self.max_video_logged:
+            to_remove = video_list[:-self.max_video_logged]
+            for name in to_remove:
+                remove_path = os.path.join(root, name)
+                if os.path.exists(remove_path):
+                    os.system(f'rm {remove_path}')
+                    print(f'removed: {remove_path}')
+                else:
+                    print(f'not found: {remove_path}')
+
+    @rank_zero_only
+    def log_videos(self, pl_module: LightningModule, batch: tp.Any, batch_idx: int, split: str):
+        if hasattr(pl_module, "log_videos") and \
+                callable(pl_module.log_videos) and \
+                batch_idx % self.batch_freq == 0 and \
+                self.max_video_per_generation > 0:
+            print(f'Log videos on epoch {pl_module.current_epoch}')
+
+            is_train = pl_module.training
+            if is_train:
+                pl_module.eval()
+
+            with torch.no_grad():
+                music, motion, gt_motion = pl_module.log_videos(
+                    batch, motion_mean=self.mean, motion_std=self.std
+                )
+
+            N = min(music.shape[0], self.max_video_per_generation)
+            # randomly pick N samples from the generated results
+            idx = torch.LongTensor(random.sample(range(music.shape[0]), N))
+            music = music[idx]
+            motion = motion[idx]
+            gt_motion = gt_motion[idx]
+
+            self.log_local(
+                pl_module.logger.save_dir, split, music, motion, gt_motion,
+                pl_module.global_step, pl_module.current_epoch, batch_idx
+            )
+
+            if is_train:
+                pl_module.train()
+
+    def on_train_batch_end(
+        self, trainer: Trainer, pl_module: LightningModule, outputs: STEP_OUTPUT, batch: tp.Any, batch_idx: int
+    ):
+        if not self.disabled and pl_module.current_epoch % self.epoch_freq == 0:
+            self.log_videos(pl_module, batch, batch_idx, split="train")
+
+        if batch_idx == 0:
+            model_size = torch.cuda.max_memory_allocated(device=None)
+            for _ in range(30):
+                model_size /= 2
+            print('############### GPU memory used %.1f GB #################' % model_size)
+
+    def on_validation_batch_end(
+        self, trainer: Trainer, pl_module: LightningModule, outputs: tp.Optional[STEP_OUTPUT],
+        batch: tp.Any, batch_idx: int, dataloader_idx: int = 0,
+    ):
+        if not self.disabled and pl_module.current_epoch % self.epoch_freq == 0:
+            self.log_videos(pl_module, batch, batch_idx, split="val")

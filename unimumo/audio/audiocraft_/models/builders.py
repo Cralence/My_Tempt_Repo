@@ -1,6 +1,6 @@
 import typing as tp
 
-import unimumo.audio.audiocraft_new as audiocraft
+import unimumo.audio.audiocraft_ as audiocraft
 import omegaconf
 import torch
 

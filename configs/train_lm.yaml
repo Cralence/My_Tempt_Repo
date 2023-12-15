@@ -81,11 +81,11 @@ data:
 lightning:
   callbacks:
     video_logger:
-      target: unimumo.mm_transformer_logger.MusicLogger
+      target: unimumo.loggers.MusicMotionLogger
       params:
         music_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
         motion_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt'
-        motion_vqvae_config_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/final_version_2/My_Tempt_Repo/configs/motion_vqvae_configs.yaml'
+        motion_vqvae_config_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/final_version_2/My_Tempt_Repo/configs/train_motion_vqvae.yaml'
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         epoch_frequency: 10
         batch_frequency: 2000
