@@ -362,8 +362,21 @@ if __name__ == "__main__":
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
 
+        # set training stage and relevant parameters
         config.model.params.stage = opt.stage
         config.model.params.mm_ckpt = opt.mm_ckpt
+        # set the batch size for corresponding training stage
+        if opt.stage == "train_music_motion":
+            config.data.params.batch_size = config.data.params.batch_size_music_motion
+        else:
+            config.data.params.batch_size = config.data.params.batch_size_caption
+        del config.data.params.batch_size_music_motion
+        del config.data.params.batch_size_caption
+        # set using full llama-generated captions if training captioning
+        if opt.stage == "train_caption":
+            config.data.params.train.params.llama_caption_ratio = 1.0
+            config.data.params.validation.params.llama_caption_ratio = 1.0
+
         # model
         model = instantiate_from_config(config.model)
 
@@ -489,18 +502,6 @@ if __name__ == "__main__":
         trainer.logdir = logdir  ###
 
         # data
-        # set the batch size for corresponding training stage
-        if opt.stage == "train_music_motion":
-            config.data.params.batch_size = config.data.params.batch_size_music_motion
-        else:
-            config.data.params.batch_size = config.data.params.batch_size_caption
-        del config.data.params.batch_size_music_motion
-        del config.data.params.batch_size_caption
-        # set using full llama-generated captions if training captioning
-        if opt.stage == "train_caption":
-            config.data.params.train.params.llama_caption_ratio = 1.0
-            config.data.params.validation.params.llama_caption_ratio = 1.0
-
         data = instantiate_from_config(config.data)
         # NOTE according to https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html
         # calling these ourselves should not be necessary but it is.
