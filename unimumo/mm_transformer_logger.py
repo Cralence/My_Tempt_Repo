@@ -170,6 +170,8 @@ class MusicLogger(Callback):
             text = text_prompt[i]
             text = ' '.join(text.split('.'))
             text = '_'.join(text.split(' '))
+            # cut the text if it is too long, otherwise it cannot be used as filename
+            text = text[:300]
 
             gt_video_filename = "e-{:06}_b-{:06}_video_{}_{}.mp4".format(current_epoch, batch_idx, i, text)
             gt_video_path = os.path.join(root, gt_video_filename)
