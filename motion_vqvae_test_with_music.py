@@ -13,7 +13,7 @@ import soundfile as sf
 from unimumo.motion.motion_process import recover_from_ric
 from unimumo.motion import skel_animation
 from pytorch_lightning import seed_everything
-from unimumo.audio.audiocraft.models.builders import get_compression_model
+from unimumo.audio.audiocraft_.models.builders import get_compression_model
 
 #####################
 # for model using both music and motion to encode motion.
