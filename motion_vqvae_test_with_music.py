@@ -205,9 +205,7 @@ if __name__ == "__main__":
 
             waveform *= 0
 
-            input_batch = {'motion': motion, 'music': waveform}
-
-            music_emb, motion_emb = model.encode(input_batch)
+            music_emb, motion_emb = model.encode(waveform, motion)
 
             q_res_music = model.quantizer(music_emb, 50)  # 50 is the fixed sample rate
             q_res_motion = model.quantizer(motion_emb, 50)
