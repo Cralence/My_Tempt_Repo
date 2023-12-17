@@ -116,7 +116,7 @@ def get_parser(**parser_kwargs):
         "--stage",
         type=str,
         required=True,
-        choices=['train_music_motion', 'train_caption'],
+        choices=['train_vqvae', 'train_music_motion', 'train_caption'],
         help="",
     )
 
@@ -133,7 +133,6 @@ def get_parser(**parser_kwargs):
 
 def nondefault_trainer_args(opt):
     parser = argparse.ArgumentParser()
-    #parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args([])
     return sorted(k for k in vars(args) if getattr(opt, k) != getattr(args, k))
 
@@ -152,13 +151,21 @@ class WrappedDataset(Dataset):
 
 
 # an adapter to our collate func
-def music_collate(batch):
+def data_collate(batch):
     notnone_batches = [b for b in batch if b is not None]
-    adapted_batch = {
-        "text": [b['text'] for b in notnone_batches],
-        "music_code": torch.stack([b['music_code'] for b in notnone_batches]),
-        "motion_code": torch.stack([b['motion_code'] for b in notnone_batches]),
-    }
+
+    adapted_batch = {}
+    if all(["text" in b.keys() for b in notnone_batches]):
+        adapted_batch["text"] = [b['text'] for b in notnone_batches]
+    if all(["music_code" in b.keys() for b in notnone_batches]):
+        adapted_batch["music_code"] = torch.stack([b['music_code'] for b in notnone_batches])
+    if all(["motion_code" in b.keys() for b in notnone_batches]):
+        adapted_batch["motion_code"] = torch.stack([b['motion_code'] for b in notnone_batches])
+    if all(["motion" in b.keys() for b in notnone_batches]):
+        adapted_batch["motion"] = torch.stack([b['motion'] for b in notnone_batches])
+    if all(["waveform" in b.keys() for b in notnone_batches]):
+        adapted_batch["waveform"] = torch.stack([b['waveform'] for b in notnone_batches])
+
     return adapted_batch
 
 
@@ -167,10 +174,10 @@ class DataModuleFromConfig(pl.LightningDataModule):
                  wrap=False, num_workers=None, shuffle_test_loader=False,
                  shuffle_val_dataloader=False):
         super().__init__()
-        self.collate = music_collate
+        self.collate = data_collate
         self.batch_size = batch_size
         self.dataset_configs = dict()
-        self.num_workers = num_workers if num_workers is not None else 2 #batch_size * 2
+        self.num_workers = num_workers if num_workers is not None else 2
         if train is not None:
             self.dataset_configs["train"] = train
             self.train_dataloader = self._train_dataloader
@@ -236,12 +243,6 @@ class SetupCallback(Callback):
     def on_validation_end(self, trainer, pl_module) -> None:
         if trainer.global_rank == 0:
             print('Saving checkpoint on validation end')
-            ckpt_path = os.path.join(self.ckptdir, "last.ckpt")
-            trainer.save_checkpoint(ckpt_path)
-
-    def on_validation_epoch_end(self, trainer, pl_module) -> None:
-        if trainer.global_rank == 0:
-            print('Saving checkpoint on validation epoch end')
             ckpt_path = os.path.join(self.ckptdir, "last.ckpt")
             trainer.save_checkpoint(ckpt_path)
 
@@ -324,6 +325,7 @@ if __name__ == "__main__":
             name = ""
         nowname = now + name + opt.postfix
         logdir = os.path.join(opt.logdir, nowname)
+        opt.resume_from_checkpoint = None
 
     ckptdir = os.path.join(logdir, "checkpoints")
     cfgdir = os.path.join(logdir, "configs")
@@ -345,11 +347,8 @@ if __name__ == "__main__":
         # default to ddp
         trainer_config["accelerator"] = "gpu"
 
-        ### this should be changed in the new version!
-        ### it does nothing now
         for k in nondefault_trainer_args(opt):
             trainer_config[k] = getattr(opt, k)
-
 
         if not "devices" in trainer_config:
             del trainer_config["accelerator"]
@@ -359,16 +358,20 @@ if __name__ == "__main__":
             print(f"Running on GPUs {gpuinfo}")
             cpu = False
 
+        # set unlimited training epoch
+        trainer_config['max_epochs'] = -1
+
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
 
         # set training stage and relevant parameters
-        config.model.params.stage = opt.stage
-        config.model.params.mm_ckpt = opt.mm_ckpt
+        if opt.stage != "train_vqvae":
+            config.model.params.stage = opt.stage
+            config.model.params.mm_ckpt = opt.mm_ckpt
         # set the batch size for corresponding training stage
         if opt.stage == "train_music_motion":
             config.data.params.batch_size = config.data.params.batch_size_music_motion
-        else:
+        elif opt.stage == "train_cation":
             config.data.params.batch_size = config.data.params.batch_size_caption
         del config.data.params.batch_size_music_motion
         del config.data.params.batch_size_caption
@@ -431,7 +434,7 @@ if __name__ == "__main__":
         if hasattr(model, "monitor"):
             print(f"Monitoring {model.monitor} as checkpoint metric.")
             default_modelckpt_cfg["params"]["monitor"] = model.monitor
-            default_modelckpt_cfg["params"]["save_top_k"] = 1
+            default_modelckpt_cfg["params"]["save_top_k"] = 3
 
         if "modelcheckpoint" in lightning_config:
             modelckpt_cfg = lightning_config.modelcheckpoint
@@ -491,14 +494,14 @@ if __name__ == "__main__":
             default_callbacks_cfg.update(default_metrics_over_trainsteps_ckpt_dict)
 
         callbacks_cfg = OmegaConf.merge(default_callbacks_cfg, callbacks_cfg)
-        if 'ignore_keys_callback' in callbacks_cfg and hasattr(trainer_opt, 'resume_from_checkpoint'):
+        if 'ignore_keys_callback' in callbacks_cfg and trainer_opt.resume_from_checkpoint is not None:
             callbacks_cfg.ignore_keys_callback.params['ckpt_path'] = trainer_opt.resume_from_checkpoint
         elif 'ignore_keys_callback' in callbacks_cfg:
             del callbacks_cfg['ignore_keys_callback']
 
         trainer_kwargs["callbacks"] = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
 
-        trainer = Trainer(**vars(trainer_opt), **trainer_kwargs)  # print(trainer_kwargs['callbacks'][0].resume)
+        trainer = Trainer(**vars(trainer_opt), **trainer_kwargs)
         trainer.logdir = logdir  ###
 
         # data
@@ -543,8 +546,8 @@ if __name__ == "__main__":
                 ckpt_path = os.path.join(ckptdir, "last.ckpt")
                 trainer.save_checkpoint(ckpt_path)
 
+        # save the checkpoint when receiving sigint
         def sigint_handler(*args, **kwargs):
-            # run all checkpoint hooks
             if trainer.global_rank == 0:
                 print("Summoning checkpoint.")
                 ckpt_path = os.path.join(ckptdir, "last.ckpt")
@@ -571,10 +574,7 @@ if __name__ == "__main__":
         # run
         if opt.train:
             try:
-                if hasattr(opt, 'resume_from_checkpoint'):
-                    trainer.fit(model, data, ckpt_path=opt.resume_from_checkpoint)
-                else:
-                    trainer.fit(model, data)
+                trainer.fit(model, data, ckpt_path=opt.resume_from_checkpoint)
             except Exception:
                 melk()
                 raise
