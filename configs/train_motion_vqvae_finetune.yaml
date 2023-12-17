@@ -30,7 +30,7 @@ model:
 data:
   target: train.DataModuleFromConfig
   params:
-    batch_size: 30
+    batch_size: 1
     wrap: True
     num_workers: 4
     train:
@@ -41,11 +41,11 @@ data:
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/'
         music_beat_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_beat'
-        duration: 2
+        duration: 5
         use_humanml3d: True
         music_dataset_name: 'music4all'
         traverse_motion: True
-        align: False
+        align: True
 
     validation:
       target: unimumo.data.music_motion_dataset.MusicMotionDataset
@@ -55,11 +55,11 @@ data:
         motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
         music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/'
         music_beat_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_beat'
-        duration: 2
+        duration: 5
         use_humanml3d: True
         music_dataset_name: 'music4all'
         traverse_motion: True
-        align: False
+        align: True
 
 
 lightning:
