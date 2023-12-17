@@ -28,7 +28,7 @@ model:
 
 
 data:
-  target: mm_vqvae_train.DataModuleFromConfig
+  target: train.DataModuleFromConfig
   params:
     batch_size: 30
     wrap: True

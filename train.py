@@ -1,18 +1,17 @@
-import argparse, os, sys, datetime, glob, importlib, csv
-import numpy as np
-import time
+import argparse, os, sys, datetime, glob
+
+import pytorch_lightning.callbacks
 import torch
-import torchvision
 import pytorch_lightning as pl
 
 from packaging import version
 from omegaconf import OmegaConf
-from torch.utils.data import random_split, DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Dataset
 from functools import partial
 
 from pytorch_lightning import seed_everything
 from pytorch_lightning.trainer import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateMonitor
+from pytorch_lightning.callbacks import Callback
 from unimumo.util import instantiate_from_config
 
 
@@ -50,28 +49,9 @@ def get_parser(**parser_kwargs):
         "-b",
         "--base",
         nargs="*",
-        metavar="diffusion_wavenet_text_train.yaml",
         help="paths to base configs. Loaded from left-to-right. "
              "Parameters can be overwritten or added with command-line options of the form `--key value`.",
-        #default=["/home/zfchen/aimos/LMCGnngn/yanghan/music_motion_diffusion/configs/mm_transformer_v7.yaml"],
-        default=['./configs/local_run.yaml']
-    )
-    parser.add_argument(
-        "-t",
-        "--train",
-        type=str2bool,
-        const=True,
-        default=True,
-        nargs="?",
-        help="train",
-    )
-    parser.add_argument(
-        "--no-test",
-        type=str2bool,
-        const=True,
-        default=False,
-        nargs="?",
-        help="disable test",
+        default=[]
     )
     parser.add_argument(
         "-d",
@@ -90,18 +70,11 @@ def get_parser(**parser_kwargs):
         help="seed for seed_everything",
     )
     parser.add_argument(
-        "-f",
-        "--postfix",
-        type=str,
-        default="",
-        help="post-postfix for default name",
-    )
-    parser.add_argument(
         "-l",
         "--logdir",
         type=str,
-        default="mm_transformer_logs",
-        help="directory for logging dat shit",
+        default="training_logs",
+        help="directory for logging and saving checkpoints",
     )
     parser.add_argument(
         "--scale_lr",
@@ -111,21 +84,19 @@ def get_parser(**parser_kwargs):
         default=False,
         help="scale base-lr by ngpu * batch_size * n_accumulate",
     )
-
     parser.add_argument(
         "--stage",
         type=str,
         required=True,
         choices=['train_vqvae', 'train_music_motion', 'train_caption'],
-        help="",
+        help="specify one of the training stages of unimumo",
     )
-
     parser.add_argument(
         "--mm_ckpt",
         type=str,
         required=False,
         default=None,
-        help="",
+        help="path for trained music motion lm. Need to be provided when training the caption model.",
     )
 
     return parser
@@ -170,9 +141,10 @@ def data_collate(batch):
 
 
 class DataModuleFromConfig(pl.LightningDataModule):
-    def __init__(self, batch_size, train=None, validation=None, test=None,
-                 wrap=False, num_workers=None, shuffle_test_loader=False,
-                 shuffle_val_dataloader=False):
+    def __init__(
+            self, batch_size, train=None, validation=None, test=None, wrap=False, num_workers=None,
+            shuffle_test_loader=False, shuffle_val_dataloader=False
+    ):
         super().__init__()
         self.collate = data_collate
         self.batch_size = batch_size
@@ -202,25 +174,34 @@ class DataModuleFromConfig(pl.LightningDataModule):
                 self.datasets[k] = WrappedDataset(self.datasets[k])
 
     def _train_dataloader(self):
-        return DataLoader(self.datasets["train"],
-                          collate_fn=self.collate,
-                          batch_size=self.batch_size,
-                          num_workers=self.num_workers, shuffle=True,
-                          worker_init_fn=None)
+        return DataLoader(
+            self.datasets["train"],
+            collate_fn=self.collate,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            shuffle=True,
+            worker_init_fn=None
+        )
 
     def _val_dataloader(self, shuffle=False):
-        return DataLoader(self.datasets["validation"],
-                          collate_fn=self.collate,
-                          batch_size=self.batch_size,
-                          num_workers=self.num_workers,
-                          worker_init_fn=None,
-                          shuffle=shuffle)
+        return DataLoader(
+            self.datasets["validation"],
+            collate_fn=self.collate,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            worker_init_fn=None,
+            shuffle=shuffle
+        )
 
     def _test_dataloader(self, shuffle=False):
-        return DataLoader(self.datasets["test"],
-                          collate_fn=self.collate,
-                          batch_size=self.batch_size,
-                          num_workers=self.num_workers, worker_init_fn=None, shuffle=shuffle)
+        return DataLoader(
+            self.datasets["test"],
+            collate_fn=self.collate,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            worker_init_fn=None,
+            shuffle=shuffle
+        )
 
 
 class SetupCallback(Callback):
@@ -240,7 +221,7 @@ class SetupCallback(Callback):
             ckpt_path = os.path.join(self.ckptdir, "last.ckpt")
             trainer.save_checkpoint(ckpt_path)
 
-    def on_validation_end(self, trainer, pl_module) -> None:
+    def on_validation_end(self, trainer, pl_module):
         if trainer.global_rank == 0:
             print('Saving checkpoint on validation end')
             ckpt_path = os.path.join(self.ckptdir, "last.ckpt")
@@ -279,6 +260,7 @@ class SetupCallback(Callback):
                 except FileExistsError:
                     pass
 
+
 if __name__ == "__main__":
     now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     # add cwd for convenience and to make classes in this file available when
@@ -295,13 +277,11 @@ if __name__ == "__main__":
             "If you want to resume training in a new log folder, "
             "use -n/--name in combination with --resume_from_checkpoint"
         )
-    if opt.resume:
+    if opt.resume:  # set resume ckpt and load previous configs
         if not os.path.exists(opt.resume):
             raise ValueError("Cannot find {}".format(opt.resume))
-        if os.path.isfile(opt.resume):
+        if os.path.isfile(opt.resume):  # logdir_name/checkpoints/xxx.ckpt
             paths = opt.resume.split("/")
-            # idx = len(paths)-paths[::-1].index("logs")+1
-            # logdir = "/".join(paths[:idx])
             logdir = "/".join(paths[:-2])
             ckpt = opt.resume
         else:
@@ -314,7 +294,7 @@ if __name__ == "__main__":
         opt.base = base_configs + opt.base
         _tmp = logdir.split("/")
         nowname = _tmp[-1]
-    else:
+    else:  # start new training project
         if opt.name:
             name = "_" + opt.name
         elif opt.base:
@@ -323,14 +303,14 @@ if __name__ == "__main__":
             name = "_" + cfg_name
         else:
             name = ""
-        nowname = now + name + opt.postfix
+        nowname = now + name
         logdir = os.path.join(opt.logdir, nowname)
         opt.resume_from_checkpoint = None
 
-    ckptdir = os.path.join(logdir, "checkpoints")
-    cfgdir = os.path.join(logdir, "configs")
     seed_everything(opt.seed)
 
+    ckptdir = os.path.join(logdir, "checkpoints")
+    cfgdir = os.path.join(logdir, "configs")
     os.makedirs(cfgdir, exist_ok=True)
     os.makedirs(ckptdir, exist_ok=True)
     os.makedirs(logdir, exist_ok=True)
@@ -350,12 +330,12 @@ if __name__ == "__main__":
         for k in nondefault_trainer_args(opt):
             trainer_config[k] = getattr(opt, k)
 
-        if not "devices" in trainer_config:
+        if "devices" not in trainer_config:
             del trainer_config["accelerator"]
             cpu = True
         else:
             gpuinfo = trainer_config["devices"]
-            print(f"Running on GPUs {gpuinfo}")
+            print(f"Running on {gpuinfo} GPUs")
             cpu = False
 
         # set unlimited training epoch
@@ -369,7 +349,7 @@ if __name__ == "__main__":
             config.data.params.batch_size = config.data.params.batch_size_music_motion
         elif opt.stage == "train_cation":
             config.data.params.batch_size = config.data.params.batch_size_caption
-        # set training stage and relevant parameters
+        # set training stage and relevant parameters for the model
         if opt.stage != "train_vqvae":
             config.model.params.stage = opt.stage
             config.model.params.mm_ckpt = opt.mm_ckpt
@@ -440,7 +420,7 @@ if __name__ == "__main__":
         if "modelcheckpoint" in lightning_config:
             modelckpt_cfg = lightning_config.modelcheckpoint
         else:
-            modelckpt_cfg =  OmegaConf.create()
+            modelckpt_cfg = OmegaConf.create()
         modelckpt_cfg = OmegaConf.merge(default_modelckpt_cfg, modelckpt_cfg)
         print(f"Merged modelckpt-cfg: \n{modelckpt_cfg}")
         if version.parse(pl.__version__) < version.parse('1.4.0'):
@@ -461,7 +441,7 @@ if __name__ == "__main__":
                 }
             },
             "learning_rate_logger": {
-                "target": "train.LearningRateMonitor",
+                "target": "pytorch_lightning.callbacks.LearningRateMonitor",
                 "params": {
                     "logging_interval": "step",
                     # "log_momentum": True
@@ -503,7 +483,7 @@ if __name__ == "__main__":
         trainer_kwargs["callbacks"] = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
 
         trainer = Trainer(**vars(trainer_opt), **trainer_kwargs)
-        trainer.logdir = logdir  ###
+        trainer.logdir = logdir
 
         # data
         data = instantiate_from_config(config.data)
@@ -547,6 +527,7 @@ if __name__ == "__main__":
                 ckpt_path = os.path.join(ckptdir, "last.ckpt")
                 trainer.save_checkpoint(ckpt_path)
 
+
         # save the checkpoint when receiving sigint
         def sigint_handler(*args, **kwargs):
             if trainer.global_rank == 0:
@@ -554,6 +535,7 @@ if __name__ == "__main__":
                 ckpt_path = os.path.join(ckptdir, "last.ckpt")
                 trainer.save_checkpoint(ckpt_path)
             sys.exit(0)
+
 
         def divein(*args, **kwargs):
             if trainer.global_rank == 0:
@@ -563,24 +545,17 @@ if __name__ == "__main__":
 
         import signal
 
-        '''
-        signal.signal(signal.SIGTERM, melk)
-        signal.signal(signal.SIGTERM, divein)
-        '''
         signal.signal(signal.SIGUSR1, melk)
         signal.signal(signal.SIGUSR2, divein)
         signal.signal(signal.SIGINT, sigint_handler)
 
-
         # run
-        if opt.train:
-            try:
-                trainer.fit(model, data, ckpt_path=opt.resume_from_checkpoint)
-            except Exception:
-                melk()
-                raise
-        if not opt.no_test and not trainer.interrupted:
-            trainer.test(model, data)
+        try:
+            trainer.fit(model, data, ckpt_path=opt.resume_from_checkpoint)
+        except Exception:
+            melk()
+            raise
+
     except Exception:
         if opt.debug and trainer.global_rank == 0:
             try:
