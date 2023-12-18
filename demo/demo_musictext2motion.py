@@ -7,7 +7,7 @@ from os.path import join as pjoin
 import soundfile as sf
 import librosa
 import numpy as np
-from unimumo.audio.audiocraft.models.builders import get_compression_model
+from unimumo.audio.audiocraft_.models.builders import get_compression_model
 from unimumo.motion.motion_process import motion_vec_to_joint
 import subprocess
 from unimumo.motion import skel_animation
