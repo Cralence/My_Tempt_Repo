@@ -70,15 +70,13 @@ if __name__ == "__main__":
 
     motion_vqvae_config = OmegaConf.load(args.motion_vqvae_config)
     unimumo_state_dict['motion_vqvae_config'] = motion_vqvae_config  # omegaconf.DictConfig
-
     motion_vqvae_weight = torch.load(args.motion_vqvae_ckpt, map_location='cpu')
-    unimumo_state_dict['motion_vqvae_weight'] = motion_vqvae_weight  # dict[str, tensor]
+    unimumo_state_dict['motion_vqvae_weight'] = motion_vqvae_weight['state_dict']  # dict[str, tensor]
 
     mm_lm_config = OmegaConf.load(args.mm_lm_config)
     unimumo_state_dict['mm_lm_config'] = mm_lm_config  # omegaconf.DictConfig
-
-    mm_lm_ckpt = torch.load(args.mm_lm_ckpt, map_location='cpu')
-    unimumo_state_dict['mm_lm_ckpt'] = mm_lm_ckpt  # dict[str, tensor]
+    mm_lm_weight = torch.load(args.mm_lm_ckpt, map_location='cpu')
+    unimumo_state_dict['mm_lm_weight'] = mm_lm_weight['state_dict']  # dict[str, tensor]
 
     torch.save(unimumo_state_dict, os.path.join(args.save_dir, 'unimumo_model.ckpt'))
 
