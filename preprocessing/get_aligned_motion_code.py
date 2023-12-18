@@ -5,73 +5,35 @@ import codecs as cs
 import numpy as np
 import librosa
 import random
-from unimumo.alignment import visual_beat, interpolation
-from unimumo.motion import motion_process
-from unimumo.motion.motion_process import recover_from_ric
-from dtw import *
 from omegaconf import OmegaConf
-from unimumo.util import instantiate_from_config
 from pytorch_lightning import seed_everything
 import argparse
 
-'''
-This is for using mm_vqvae_v6 to extract motion code that is aligned with music.
-The vqvae uses encodec codebook, but encode motion separately
-'''
+from dtw import *
+from unimumo.alignment import visual_beat, interpolation
+from unimumo.motion import motion_process
+from unimumo.util import load_model_from_config
 
 
-def load_model_from_config(config, ckpt, verbose=False):
-    model = instantiate_from_config(config.model)
-
-    if ckpt is not None:
-        print(f"Loading model from {ckpt}")
-        pl_sd = torch.load(ckpt, map_location="cpu")
-        sd = pl_sd["state_dict"]
-        m, u = model.load_state_dict(sd, strict=False)
-        if len(m) > 0 and verbose:
-            print("missing keys:")
-            print(m)
-        if len(u) > 0 and verbose:
-            print("unexpected keys:")
-            print(u)
-
-    model.eval()
-    return model
-
-def motion_vec_to_joint(vec, motion_mean, motion_std):
-    # vec: [bs, 200, 263]
-    mean = torch.tensor(motion_mean).to(vec)
-    std = torch.tensor(motion_std).to(vec)
-    vec = vec * std + mean
-    joint = recover_from_ric(vec, joints_num=22)
-    joint = joint.cpu().detach().numpy()
-    return joint
-
+# randomly pair each music with several aligned motion
 
 parser = argparse.ArgumentParser()
-
-parser.add_argument(
-    '-r',
-    "--reverse",
-    type=bool,
-    required=False,
-    default=False
-)
 
 parser.add_argument(
     '-s',
     "--start",
     type=float,
     required=False,
-    default=0.0
+    default=0.0,
+    help='the start ratio for this preprocessing'
 )
-
 parser.add_argument(
     '-e',
     "--end",
     type=float,
     required=False,
-    default=1.0
+    default=1.0,
+    help='the end ratio of this preprocessing'
 )
 
 args = parser.parse_args()
@@ -90,13 +52,14 @@ num_pair_each_music = 5
 os.makedirs(motion_feature_save_dir, exist_ok=True)
 seed_everything(2023)
 
+# load motion vqvae model
 config = OmegaConf.load(yaml_dir)
 model = load_model_from_config(config, ckpt)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 model = model.to(device)
 model.eval()
 
-
+# prepare data
 ignore = []
 motion_data = {'train': [], 'test': [], 'val': []}
 aist = []
@@ -199,7 +162,7 @@ for data_idx, (music_id, split) in enumerate(music_data):
                 aug = max_motion_length // motion_length
                 if aug < 1:
                     start_idx = random.randint(0, motion_length - max_motion_length)
-                    motion = motion[start_idx:start_idx+max_motion_length]
+                    motion = motion[start_idx:start_idx + max_motion_length]
                     # length = self.max_motion_length
                 elif aug == 1:
                     if max_motion_length - motion_length <= 50:
@@ -210,15 +173,15 @@ for data_idx, (music_id, split) in enumerate(music_data):
                         # length = motion.shape[0]
                 else:
                     max_repeat = aug
-                    if max_motion_length - max_repeat*motion.shape[0] > 50:
+                    if max_motion_length - max_repeat * motion.shape[0] > 50:
                         max_repeat += 1
                     motion = np.tile(motion, (max_repeat, 1))
                     # length = motion.shape[0]
             else:
-                motion_length = motion.shape[0] // 3 # 60 fps -> 20 fps
+                motion_length = motion.shape[0] // 3  # 60 fps -> 20 fps
                 if max_motion_length // motion_length < 1:
                     start_idx = random.randint(0, motion_length - max_motion_length)
-                    motion = motion[start_idx*3:(start_idx+max_motion_length)*3:3]
+                    motion = motion[start_idx * 3:(start_idx + max_motion_length) * 3:3]
                     # length = self.max_motion_length
                 elif max_motion_length // motion_length == 1:
                     motion = motion[::3]
@@ -259,7 +222,6 @@ for data_idx, (music_id, split) in enumerate(music_data):
                 if beat < len(mbeats):
                     mbeats[beat] = 1
 
-
             '''
             num_vbeat = np.sum(vbeats)
             num_mbeat = np.sum(mbeats)
@@ -282,7 +244,6 @@ for data_idx, (music_id, split) in enumerate(music_data):
 
         motion = (final_motion - motion_mean) / motion_std
         motion = torch.FloatTensor(motion)  # T, D
-
 
         if motion.shape[0] != max_motion_length:  # pad the motion into the same shape
             if motion.shape[0] > max_motion_length:
@@ -340,7 +301,3 @@ for data_idx, (music_id, split) in enumerate(music_data):
             )
         '''
     print('')
-
-
-
-

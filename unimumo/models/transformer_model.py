@@ -76,10 +76,6 @@ class MusicMotionTransformer(pl.LightningModule):
             mm_lm_sd = {k: v for k, v in pretrained_sd.items() if k.startswith("model.")}  # find keys with prefix "model."
             mm_lm_sd = {k[len("model."):]: v for k, v in mm_lm_sd.items()}  # remove the prefix "model."
             self.model.load_state_dict(mm_lm_sd)
-            print(mm_lm_sd.keys(), "!!!!!!!!!!!!!!!!!!")
-            print(self.model.state_dict().keys())
-            print("!!!!!!!!!!!!!!!!!!", [k for k in mm_lm_sd.keys() if k not in self.model.state_dict().keys()])
-            print("!!!!!!!!!!!!!!!!!!", [k for k in self.model.state_dict().keys() if k not in mm_lm_sd.keys()])
             # freeze music motion model
             for p in self.model.parameters():
                 p.requires_grad = False

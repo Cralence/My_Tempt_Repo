@@ -2,6 +2,8 @@ import importlib
 import torch
 
 from inspect import isfunction
+
+
 def autocast(f):
     def do_autocast(*args, **kwargs):
         with torch.cuda.amp.autocast(enabled=True,
@@ -48,8 +50,10 @@ def count_params(model, verbose=False):
         print(f"{model.__class__.__name__} has {total_params*1.e-6:.2f} M params.")
     return total_params
 
+
 def instantiate_from_config(config):
     return get_obj_from_str(config["target"])(**config.get("params", dict()))
+
 
 def get_obj_from_str(string, reload=False):
     module, cls = string.rsplit(".", 1)
@@ -58,5 +62,25 @@ def get_obj_from_str(string, reload=False):
         importlib.reload(module_imp)
     return getattr(importlib.import_module(module, package=None), cls)
 
+
 def cast_tuple(t):
     return t if isinstance(t, (tuple, list)) else (t,)
+
+
+def load_model_from_config(config, ckpt, verbose=False):
+    model = instantiate_from_config(config.model)
+
+    if ckpt is not None:
+        print(f"Loading model from {ckpt}")
+        pl_sd = torch.load(ckpt, map_location="cpu")
+        sd = pl_sd["state_dict"]
+        m, u = model.load_state_dict(sd, strict=False)
+        if len(m) > 0 and verbose:
+            print("missing keys:")
+            print(m)
+        if len(u) > 0 and verbose:
+            print("unexpected keys:")
+            print(u)
+
+    model.eval()
+    return model

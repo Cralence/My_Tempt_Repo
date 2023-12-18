@@ -161,11 +161,6 @@ class MotionVQVAE(pl.LightningModule):
 
         self.log("aeloss", aeloss, prog_bar=True, logger=True, on_step=True, on_epoch=False)
         self.log_dict(log_dict_ae, prog_bar=True, logger=True, on_step=True, on_epoch=False)
-        for i in range(4):  # log max value of the codebooks to ensure that the codebook is not changed
-            self.log(
-                f'codebook layer {i+1} max', torch.max(self.quantizer.vq.layers[i]._codebook.embed).item(),
-                prog_bar=True, logger=True, on_step=True, on_epoch=False
-            )
         return aeloss
 
     def validation_step(self, batch: tp.Dict[str, torch.Tensor], batch_idx: int):
