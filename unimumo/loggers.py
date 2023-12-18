@@ -75,7 +75,11 @@ class MusicMotionLogger(Callback):
             music_filename = "e-{:06}_b-{:06}_music_{}_gen.mp3".format(current_epoch, batch_idx, i)
             music_path = os.path.join(root, music_filename)
             os.makedirs(os.path.split(music_path)[0], exist_ok=True)
-            sf.write(music_path, music[i].squeeze().cpu().detach().numpy(), self.sr)
+            try:
+                sf.write(music_path, music[i].squeeze().cpu().detach().numpy(), self.sr)
+            except Exception:
+                print(f"Cannot save {music_path}")
+                continue
 
             if motion is None or gt_music is None or gt_motion is None:
                 continue
@@ -83,14 +87,23 @@ class MusicMotionLogger(Callback):
             gt_music_filename = "e-{:06}_b-{:06}_music_{}_ref.mp3".format(current_epoch, batch_idx, i)
             gt_music_path = os.path.join(root, gt_music_filename)
             os.makedirs(os.path.split(gt_music_path)[0], exist_ok=True)
-            sf.write(gt_music_path, gt_music[i].squeeze().cpu().detach().numpy(), self.sr)
+            try:
+                sf.write(gt_music_path, gt_music[i].squeeze().cpu().detach().numpy(), self.sr)
+            except Exception:
+                print(f"Cannot save {gt_music_path}")
+                continue
 
             motion_filename = "e-{:06}_b-{:06}_motion_{}.mp4".format(current_epoch, batch_idx, i)
             motion_path = os.path.join(root, motion_filename)
             os.makedirs(os.path.split(motion_path)[0], exist_ok=True)
-            skel_animation.plot_3d_motion(
-                motion_path, self.kinematic_chain, motion[i], title="None", vbeat=None, fps=self.motion_fps, radius=4
-            )
+            try:
+                skel_animation.plot_3d_motion(
+                    motion_path, self.kinematic_chain, motion[i], title="None", vbeat=None,
+                    fps=self.motion_fps, radius=4
+                )
+            except Exception:
+                print(f"Cannot save {motion_path}")
+                continue
 
             video_filename = "e-{:06}_b-{:06}_video_{}.mp4".format(current_epoch, batch_idx, i)
             video_path = os.path.join(root, video_filename)
@@ -100,9 +113,14 @@ class MusicMotionLogger(Callback):
             gt_motion_filename = "e-{:06}_b-{:06}_motion_{}_gt.mp4".format(current_epoch, batch_idx, i)
             gt_motion_path = os.path.join(root, gt_motion_filename)
             os.makedirs(os.path.split(gt_motion_path)[0], exist_ok=True)
-            skel_animation.plot_3d_motion(
-                gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None, fps=self.motion_fps, radius=4
-            )
+            try:
+                skel_animation.plot_3d_motion(
+                    gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None,
+                    fps=self.motion_fps, radius=4
+                )
+            except Exception:
+                print(f"Cannot save {gt_motion_path}")
+                continue
 
             gt_video_filename = "e-{:06}_b-{:06}_video_{}_gt.mp4".format(current_epoch, batch_idx, i)
             gt_video_path = os.path.join(root, gt_video_filename)
@@ -142,16 +160,21 @@ class MusicMotionLogger(Callback):
             os.makedirs(os.path.split(gt_music_path)[0], exist_ok=True)
             try:
                 sf.write(gt_music_path, gt_music[i].squeeze().cpu().detach().numpy(), self.sr)
-            except:
-                print(f'{gt_music_path} cannot be saved')
+            except Exception:
+                print(f"Cannot save {gt_music_path}")
                 continue
 
             gt_motion_filename = "motion.mp4"
             gt_motion_path = os.path.join(root, gt_motion_filename)
             os.makedirs(os.path.split(gt_motion_path)[0], exist_ok=True)
-            skel_animation.plot_3d_motion(
-                gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None, fps=self.motion_fps, radius=4
-            )
+            try:
+                skel_animation.plot_3d_motion(
+                    gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None,
+                    fps=self.motion_fps, radius=4
+                )
+            except Exception:
+                print(f"Cannot save {gt_motion_path}")
+                continue
 
             # replace space and underscore characters
             text = text_prompt[i]
@@ -322,14 +345,23 @@ class MotionVQVAELogger(Callback):
             music_filename = "gs-{:06}_e-{:06}_b-{:06}_{}.mp3".format(global_step, current_epoch, batch_idx, i)
             music_path = os.path.join(root, music_filename)
             os.makedirs(os.path.split(music_path)[0], exist_ok=True)
-            sf.write(music_path, music[i].reshape(-1, 1), 32000)
+            try:
+                sf.write(music_path, music[i].reshape(-1, 1), 32000)
+            except Exception:
+                print(f"Cannot save {music_path}")
+                continue
 
             motion_filename = "gs-{:06}_e-{:06}_b-{:06}_motion_{}.mp4".format(global_step, current_epoch, batch_idx, i)
             motion_path = os.path.join(root, motion_filename)
             os.makedirs(os.path.split(motion_path)[0], exist_ok=True)
-            skel_animation.plot_3d_motion(
-                motion_path, self.kinematic_chain, motion[i], title="None", vbeat=None, fps=self.motion_fps, radius=4
-            )
+            try:
+                skel_animation.plot_3d_motion(
+                    motion_path, self.kinematic_chain, motion[i], title="None", vbeat=None,
+                    fps=self.motion_fps, radius=4
+                )
+            except Exception:
+                print(f"Cannot save {motion_path}")
+                continue
             video_filename = "gs-{:06}_e-{:06}_b-{:06}_video_{}.mp4".format(global_step, current_epoch, batch_idx, i)
             video_path = os.path.join(root, video_filename)
             os.makedirs(os.path.split(video_path)[0], exist_ok=True)
@@ -338,9 +370,14 @@ class MotionVQVAELogger(Callback):
             gt_motion_filename = "gs-{:06}_e-{:06}_b-{:06}_motion_{}_gt.mp4".format(global_step, current_epoch, batch_idx, i)
             gt_motion_path = os.path.join(root, gt_motion_filename)
             os.makedirs(os.path.split(gt_motion_path)[0], exist_ok=True)
-            skel_animation.plot_3d_motion(
-                gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None, fps=self.motion_fps, radius=4
-            )
+            try:
+                skel_animation.plot_3d_motion(
+                    gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None,
+                    fps=self.motion_fps, radius=4
+                )
+            except Exception:
+                print(f"Cannot save {gt_motion_path}")
+                continue
             gt_video_filename = "gs-{:06}_e-{:06}_b-{:06}_video_{}_gt.mp4".format(global_step, current_epoch, batch_idx, i)
             gt_video_path = os.path.join(root, gt_video_filename)
             os.makedirs(os.path.split(gt_video_path)[0], exist_ok=True)
