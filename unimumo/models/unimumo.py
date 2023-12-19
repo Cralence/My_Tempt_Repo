@@ -105,6 +105,7 @@ class UniMuMo(nn.Module):
         # if text_description is not provided, unconditionally generate batch_size of music and motion
         if text_description is None:
             text_description = [None] * batch_size
+        assert type(text_description) is list, 'input text should be list of str'
 
         batch = {
             'text': text_description,
@@ -134,6 +135,7 @@ class UniMuMo(nn.Module):
         if text_description is None:
             batch_size = motion_feature.shape[0]
             text_description = [None] * batch_size
+        assert type(text_description) is list, 'input text should be list of str'
 
         motion_code = self.encode_motion(motion_feature)
         music_gen = self.music_motion_lm.generate_simgle_modality(
@@ -160,6 +162,7 @@ class UniMuMo(nn.Module):
         if text_description is None:
             batch_size = waveform.shape[0]
             text_description = [None] * batch_size
+        assert type(text_description) is list, 'input text should be list of str'
 
         music_code = self.encode_music(waveform)
         motion_gen = self.music_motion_lm.generate_simgle_modality(

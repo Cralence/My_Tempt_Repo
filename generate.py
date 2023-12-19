@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     if generation_target == 'mumo':
         waveform_gen, motion_gen = model.generate_music_motion(
-            text_description=text_description,
+            text_description=[text_description],
             duration=duration,
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
@@ -165,7 +165,7 @@ if __name__ == "__main__":
 
         waveform_gen = model.generate_music_from_motion(
             motion_feature=motion,
-            text_description=text_description,
+            text_description=[text_description],
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )
@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
         motion_gen = model.generate_motion_from_music(
             waveform=waveform,
-            text_description=text_description,
+            text_description=[text_description],
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )
@@ -193,7 +193,7 @@ if __name__ == "__main__":
         motion_to_visualize = motion_gen['joint']
         print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
 
-    else: # generate text
+    else:  # generate text
         # TODO: currently do not support generating text for single modality
         assert os.path.exists(music_path) and os.path.exists(motion_path), \
             'When generating text, both music and motion should be provided'
