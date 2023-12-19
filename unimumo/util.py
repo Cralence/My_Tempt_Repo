@@ -1,5 +1,7 @@
 import importlib
+import os
 import torch
+import json
 
 from inspect import isfunction
 
@@ -84,3 +86,19 @@ def load_model_from_config(config, ckpt, verbose=False):
 
     model.eval()
     return model
+
+
+def get_music_motion_prompt_list(meta_dir):
+    with open(os.path.join(meta_dir, 'music4all_captions.json'), 'r') as caption_fd:
+        music_caption = json.load(caption_fd)
+    music_prompt_list = [v for k, v in music_caption.items()]
+
+    aist_genres = ['break', 'pop', 'lock', 'middle hip-hop', 'LA style hip-hop', 'house', 'waack', 'krump',
+                   'street jazz', 'ballet jazz']
+    motion_prompt_list = []
+    for genre in aist_genres:
+        motion_prompt_list.append(f'The genre of the dance is {genre}.')
+        motion_prompt_list.append(f'The style of the dance is {genre}.')
+        motion_prompt_list.append(f'This is a {genre} style dance.')
+
+    return music_prompt_list, motion_prompt_list
