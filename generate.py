@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     # about input prompt
     parser.add_argument(
-        # "-mu_p"
+        "-mu_p",
         "--music_path",
         type=str,
         required=False,
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         help="The path to the music to be conditioned on",
     )
     parser.add_argument(
-        "-mo_p"
+        "-mo_p",
         "--motion_path",
         type=str,
         required=False,
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         help="The path to the motion to be conditioned on",
     )
     parser.add_argument(
-        "-mu_d"
+        "-mu_d",
         "--music_description",
         type=str,
         required=False,
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         help="The conditional description of music",
     )
     parser.add_argument(
-        "-mo_d"
+        "-mo_d",
         "--motion_description",
         type=str,
         required=False,
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         help="The conditional description of motion",
     )
     parser.add_argument(
-        "-t"
+        "-t",
         "--generation_target",
         type=str,
         required=True,
