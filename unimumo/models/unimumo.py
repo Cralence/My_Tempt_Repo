@@ -146,7 +146,7 @@ class UniMuMo(nn.Module):
         motion_feature = np.tile(motion_feature, (batch_size, 1, 1))
 
         motion_code = self.encode_motion(motion_feature)
-        music_gen = self.music_motion_lm.generate_simgle_modality(
+        music_gen = self.music_motion_lm.generate_single_modality(
             music_code=None,
             motion_code=motion_code,
             text_description=text_description,
@@ -177,7 +177,7 @@ class UniMuMo(nn.Module):
         waveform = np.tile(waveform, (batch_size, 1, 1))
 
         music_code = self.encode_music(waveform)
-        motion_gen = self.music_motion_lm.generate_simgle_modality(
+        motion_gen = self.music_motion_lm.generate_single_modality(
             music_code=music_code,
             motion_code=None,
             text_description=text_description,
