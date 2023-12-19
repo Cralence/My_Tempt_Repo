@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     # about input prompt
     parser.add_argument(
-        "-mu_p"
+        # "-mu_p"
         "--music_path",
         type=str,
         required=False,
