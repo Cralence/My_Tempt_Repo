@@ -461,7 +461,7 @@ class LMModel(StreamingModule):
         motion_gen_sequence, _, motion_mask = pattern.build_pattern_sequence(motion_gen_codes, self.motion_special_token_id)   # gen_sequence: padded with self.motion_special_token_id
 
         gen_sequence_len = music_gen_sequence.shape[-1]  # gen_sequence shape is [B, K, S]
-        for offset in tqdm(range(1, gen_sequence_len), desc="Generating music & motion"):
+        for offset in tqdm(range(1, gen_sequence_len), desc=f"Generating music & motion of shape {music_gen_sequence.shape}"):
             # get current sequence
             music_curr_sequence = music_gen_sequence[..., 0:offset]
             music_curr_mask = music_mask[None, ..., 0:offset].expand(B, -1, -1)
