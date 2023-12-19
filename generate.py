@@ -185,6 +185,7 @@ if __name__ == "__main__":
         motion_to_visualize = model.motion_vec_to_joint(
             torch.Tensor(model.normalize_motion(motion))
         )
+        motion_to_visualize = np.tile(motion_to_visualize, (batch_size, 1, 1))
         print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
 
     elif generation_target == 'mo':
@@ -202,7 +203,7 @@ if __name__ == "__main__":
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )
-        waveform_to_visualize = waveform
+        waveform_to_visualize = np.tile(waveform, (batch_size, 1, 1))
         motion_to_visualize = motion_gen['joint']
         print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
 

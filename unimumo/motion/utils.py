@@ -29,14 +29,14 @@ def visualize_music_motion(waveform: np.ndarray, joint: np.ndarray, save_dir: st
             continue
 
         motion_path = pjoin(save_dir, 'motion.mp4')
-        # try:
-        skel_animation.plot_3d_motion(
-            motion_path, kinematic_chain, joint[i], title='Music-Motion', vbeat=None,
-            fps=20, radius=4
-        )
-        # except Exception:
-        #     print(f'{motion_path} cannot be saved.')
-        #     continue
+        try:
+            skel_animation.plot_3d_motion(
+                motion_path, kinematic_chain, joint[i], title='Music-Motion', vbeat=None,
+                fps=20, radius=4
+            )
+        except Exception:
+            print(f'{motion_path} cannot be saved.')
+            continue
 
         video_path = pjoin(save_dir, f'video_{i}.mp4')
         try:
