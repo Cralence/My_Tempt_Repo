@@ -457,6 +457,7 @@ class LMModel(StreamingModule):
             motion_gen_codes = motion_code
         assert music_gen_codes.shape[-1] == motion_gen_codes.shape[-1], "music code and motion code should be in equal time dimension"
         # create the gen_sequence with proper interleaving from the pattern: [B, K, S]
+        print('!!!!!!!!!!!!!!!!!!??', music_gen_codes.shape, motion_gen_codes.shape)
         music_gen_sequence, _, music_mask = pattern.build_pattern_sequence(music_gen_codes, self.music_special_token_id)   # gen_sequence: padded with self.music_special_token_id
         motion_gen_sequence, _, motion_mask = pattern.build_pattern_sequence(motion_gen_codes, self.motion_special_token_id)   # gen_sequence: padded with self.motion_special_token_id
 
