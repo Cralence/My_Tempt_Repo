@@ -3,7 +3,6 @@ import torch.nn as nn
 import omegaconf
 import typing as tp
 import numpy as np
-from functools import partial
 
 from unimumo.audio.audiocraft_.models.builders import get_compression_model
 from unimumo.util import instantiate_from_config

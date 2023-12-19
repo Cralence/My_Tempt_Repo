@@ -85,7 +85,7 @@ if __name__ == "__main__":
     mm_lm_config = OmegaConf.load(args.mm_lm_config)
     unimumo_state_dict['music_motion_lm_config'] = mm_lm_config  # omegaconf.DictConfig
     mm_lm_weight = torch.load(args.mm_lm_ckpt, map_location='cpu')
-    unimumo_state_dict['music_motion_weight'] = mm_lm_weight['state_dict']  # dict[str, tensor]
+    unimumo_state_dict['music_motion_lm_weight'] = mm_lm_weight['state_dict']  # dict[str, tensor]
 
     motion_mean = np.load(os.path.join(args.motion_metadata_dir, 'Mean.npy'))
     motion_std = np.load(os.path.join(args.motion_metadata_dir, 'Std.npy'))
