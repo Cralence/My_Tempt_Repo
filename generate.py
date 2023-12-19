@@ -172,7 +172,7 @@ if __name__ == "__main__":
         motion = motion[::3]
         motion = motion[None, ...]
         # cut motion to generate duration
-        motion = motion[:, :20 * duration]
+        motion = motion[:, :int(20 * duration)]
 
         waveform_gen = model.generate_music_from_motion(
             motion_feature=motion,
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
         waveform, _ = librosa.load(music_path, sr=32000)
         # cut waveform to generate duration
-        waveform = waveform[:32000 * duration]
+        waveform = waveform[:int(32000 * duration)]
         waveform = waveform[None, None, ...]  # [1, 1, 32000 * duration]
 
         motion_gen = model.generate_motion_from_music(
@@ -216,11 +216,11 @@ if __name__ == "__main__":
         motion = motion[::3]
         motion = motion[None, ...]
         # cut motion to generate duration
-        motion = motion[:, :20 * duration]
+        motion = motion[:, :int(20 * duration)]
         # load music
         waveform, _ = librosa.load(music_path, sr=32000)
         # cut waveform to generate duration
-        waveform = waveform[:32000 * duration]
+        waveform = waveform[:int(32000 * duration)]
         waveform = waveform[None, None, ...]  # [1, 1, 32000 * duration]
 
         captions = model.generate_text(
