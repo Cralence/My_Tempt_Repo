@@ -73,13 +73,13 @@ class UniMuMo(nn.Module):
         target_motion_length = (motion_feature.shape[1] // 2) * 2
         motion_feature = motion_feature[:, :target_motion_length]
 
-        motion = torch.FloatTensor(self.normalize_motion(motion_feature)).contiguous().to(device)
+        motion = torch.FloatTensor(self.normalize_motion(motion_feature)).to(device)
 
         # create zero waveform tensor of the same duration for joint encoding
         empty_waveform = torch.zeros((batch_size, 1, target_motion_length // 2 * 5 * 640)).to(device)
 
         _, motion_emb = self.motion_vqvae.encode(x_music=empty_waveform, x_motion=motion)
-        return self.motion_vqvae.quantizer.encode(motion_emb)
+        return self.motion_vqvae.quantizer.encode(motion_emb).contiguous()
 
     @torch.no_grad()
     def encode_music(self, waveform: np.ndarray) -> torch.Tensor:
@@ -91,9 +91,9 @@ class UniMuMo(nn.Module):
         # ensure that the music and motion of the same duration can be encoded
         music_target_length = (waveform.shape[-1] // 640 // 5) * 640 * 5
         waveform = waveform[..., :music_target_length]
-        waveform = torch.FloatTensor(waveform).contiguous().to(device)
+        waveform = torch.FloatTensor(waveform).to(device)
 
-        return self.music_vqvae.encode(waveform)[0]
+        return self.music_vqvae.encode(waveform)[0].contiguous()
 
     @torch.no_grad()
     def generate_music_motion(
@@ -145,7 +145,7 @@ class UniMuMo(nn.Module):
         text_description = text_description * batch_size
         motion_feature = np.tile(motion_feature, (batch_size, 1, 1))
 
-        motion_code = self.encode_motion(motion_feature).contiguous()
+        motion_code = self.encode_motion(motion_feature)
         music_gen = self.music_motion_lm.generate_single_modality(
             music_code=None,
             motion_code=motion_code,
