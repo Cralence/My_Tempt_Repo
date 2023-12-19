@@ -68,6 +68,14 @@ if __name__ == "__main__":
         default=42,
         help="Change this value (any integer number) will lead to a different generation result.",
     )
+    parser.add_argument(
+        "-bs",
+        "--batch_size",
+        type=int,
+        required=False,
+        default=1,
+        help="Number of samples to generate for each prompt.",
+    )
 
     # about input prompt
     parser.add_argument(
@@ -120,6 +128,7 @@ if __name__ == "__main__":
     music_meta_dir = args.music_meta_dir
     assert os.path.exists(music_meta_dir)
     guidance_scale = args.guidance_scale
+    batch_size = args.batch_size
     temperature = args.temperature
     duration = args.duration
     seed_everything(args.seed)
@@ -146,6 +155,7 @@ if __name__ == "__main__":
     if generation_target == 'mumo':
         waveform_gen, motion_gen = model.generate_music_motion(
             text_description=[text_description],
+            batch_size=batch_size,
             duration=duration,
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
@@ -167,6 +177,7 @@ if __name__ == "__main__":
         waveform_gen = model.generate_music_from_motion(
             motion_feature=motion,
             text_description=[text_description],
+            batch_size=batch_size,
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )
@@ -187,6 +198,7 @@ if __name__ == "__main__":
         motion_gen = model.generate_motion_from_music(
             waveform=waveform,
             text_description=[text_description],
+            batch_size=batch_size,
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )

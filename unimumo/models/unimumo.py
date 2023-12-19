@@ -102,10 +102,12 @@ class UniMuMo(nn.Module):
         conditional_guidance_scale: tp.Optional[float] = None,
         temperature: tp.Optional[float] = None
     ) -> tp.Tuple[np.ndarray, tp.Dict[str, np.ndarray]]:
-        # if text_description is not provided, unconditionally generate batch_size of music and motion
         if text_description is None:
-            text_description = [None] * batch_size
+            text_description = [None]
         assert type(text_description) is list, 'input text should be list of str'
+
+        # generate batch_size number of samples for the prompt
+        text_description = text_description * batch_size
 
         batch = {
             'text': text_description,
@@ -124,6 +126,7 @@ class UniMuMo(nn.Module):
         self,
         motion_feature: np.ndarray,
         text_description: tp.Optional[tp.List[str]] = None,
+        batch_size: int = 1,
         conditional_guidance_scale: tp.Optional[float] = None,
         temperature: tp.Optional[float] = None
     ) -> np.ndarray:
@@ -133,9 +136,12 @@ class UniMuMo(nn.Module):
             "motion feature should be of shape [B, 20 * duration, 263]"
 
         if text_description is None:
-            batch_size = motion_feature.shape[0]
-            text_description = [None] * batch_size
+            text_description = [None]
         assert type(text_description) is list, 'input text should be list of str'
+
+        # generate batch_size number of samples for the prompt
+        text_description = text_description * batch_size
+        motion_feature = np.tile(motion_feature, (batch_size, 1, 1))
 
         motion_code = self.encode_motion(motion_feature)
         music_gen = self.music_motion_lm.generate_simgle_modality(
@@ -152,6 +158,7 @@ class UniMuMo(nn.Module):
         self,
         waveform: np.ndarray,
         text_description: tp.Optional[tp.List[str]] = None,
+        batch_size: int = 1,
         conditional_guidance_scale: tp.Optional[float] = None,
         temperature: tp.Optional[float] = None
     ) -> tp.Dict[str, np.ndarray]:
@@ -160,9 +167,12 @@ class UniMuMo(nn.Module):
         assert waveform.ndim == 3 and waveform.shape[1] == 1, "waveform should be of shape [B, 1, 32000 * duration]"
 
         if text_description is None:
-            batch_size = waveform.shape[0]
-            text_description = [None] * batch_size
+            text_description = [None]
         assert type(text_description) is list, 'input text should be list of str'
+
+        # generate batch_size number of samples for the prompt
+        text_description = text_description * batch_size
+        waveform = np.tile(waveform, (batch_size, 1, 1))
 
         music_code = self.encode_music(waveform)
         motion_gen = self.music_motion_lm.generate_simgle_modality(
