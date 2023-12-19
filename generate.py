@@ -79,7 +79,7 @@ if __name__ == "__main__":
         help="The path to the music to be conditioned on",
     )
     parser.add_argument(
-        " mo_p"
+        "-mo_p"
         "--motion_path",
         type=str,
         required=False,
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         help="The conditional description of music",
     )
     parser.add_argument(
-        " mo_d"
+        "-mo_d"
         "--motion_description",
         type=str,
         required=False,
@@ -140,6 +140,7 @@ if __name__ == "__main__":
 
     # load model
     model = UniMuMo.from_checkpoint(model_ckpt)
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     if generation_target == 'mumo':
         waveform_gen, motion_gen = model.generate_music_motion(
