@@ -103,7 +103,7 @@ class MotionVQVAE(pl.LightningModule):
     def encode(
         self, x_music: torch.Tensor, x_motion: torch.Tensor
     ) -> tp.Tuple[torch.Tensor, torch.Tensor]:
-        # x_music: [bs, 1, 32000 x T], x_motion: [bs, 20 x T, 263]
+        # x_music: [B, 1, 32000 x T], x_motion: [B, 20 x T, 263]
         assert x_music.dim() == 3
         with torch.no_grad():
             music_emb = self.music_encoder(x_music)  # [B, 128, 50 x T]
@@ -127,7 +127,7 @@ class MotionVQVAE(pl.LightningModule):
         motion_emb = motion_emb + ff_emb  # [B, 128, 50 x T]
 
         motion_recon = self.motion_decoder(motion_emb)
-        motion_recon = rearrange(motion_recon, 'b d t -> b t d')  # [bs, 20 x T, 263]
+        motion_recon = rearrange(motion_recon, 'b d t -> b t d')  # [B, 20 x T, 263]
 
         return motion_recon
 
@@ -147,7 +147,7 @@ class MotionVQVAE(pl.LightningModule):
         return motion_recon, q_res_motion.penalty  # penalty is the commitment loss
 
     def motion_vec_to_joint(self, vec: torch.Tensor, motion_mean: np.ndarray, motion_std: np.ndarray) -> np.ndarray:
-        # vec: [bs, 20 x T, 263]
+        # vec: [B, 20 x T, 263]
         mean = torch.tensor(motion_mean).to(vec)
         std = torch.tensor(motion_std).to(vec)
         vec = vec * std + mean

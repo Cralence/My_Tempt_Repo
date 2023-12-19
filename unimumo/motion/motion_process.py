@@ -420,7 +420,7 @@ def motion_vec_to_joint(vec, motion_mean, motion_std):
     # vec: [bs, 200, 263]
     mean = torch.tensor(motion_mean).to(vec)
     std = torch.tensor(motion_std).to(vec)
-    vec = vec*std + mean
+    vec = vec * std + mean
     joint = recover_from_ric(vec, joints_num=22)
     joint = joint.cpu().detach().numpy()
     return joint

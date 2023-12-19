@@ -1,5 +1,6 @@
 import os
 import argparse
+import numpy as np
 from omegaconf import OmegaConf
 
 import torch
@@ -52,6 +53,13 @@ if __name__ == "__main__":
         default='./configs/train_lm.yaml',
         help="The path of music motion lm configs",
     )
+    parser.add_argument(
+        "--motion_metadata_dir",
+        type=str,
+        required=False,
+        default=None,
+        help="The path of motion mean and motion std",
+    )
 
     args = parser.parse_args()
 
@@ -60,12 +68,13 @@ if __name__ == "__main__":
     assert os.path.exists(args.motion_vqvae_config)
     assert os.path.exists(args.mm_lm_ckpt)
     assert os.path.exists(args.mm_lm_config)
+    assert os.path.exists(args.motion_metadata_dir)
     os.makedirs(args.save_dir, exist_ok=True)
 
     unimumo_state_dict = {}
 
     encodec_weight = torch.load(args.music_vqvae, map_location='cpu')
-    unimumo_state_dict['music_vqvae_config'] = encodec_weight['xp.cfg']  # omegaconf.DictConfig
+    unimumo_state_dict['music_vqvae_config'] = OmegaConf.create(encodec_weight['xp.cfg'])  # omegaconf.DictConfig
     unimumo_state_dict['music_vqvae_weight'] = encodec_weight['best_state']  # dict[str, tensor]
 
     motion_vqvae_config = OmegaConf.load(args.motion_vqvae_config)
@@ -74,9 +83,14 @@ if __name__ == "__main__":
     unimumo_state_dict['motion_vqvae_weight'] = motion_vqvae_weight['state_dict']  # dict[str, tensor]
 
     mm_lm_config = OmegaConf.load(args.mm_lm_config)
-    unimumo_state_dict['mm_lm_config'] = mm_lm_config  # omegaconf.DictConfig
+    unimumo_state_dict['music_motion_lm_config'] = mm_lm_config  # omegaconf.DictConfig
     mm_lm_weight = torch.load(args.mm_lm_ckpt, map_location='cpu')
-    unimumo_state_dict['mm_lm_weight'] = mm_lm_weight['state_dict']  # dict[str, tensor]
+    unimumo_state_dict['music_motion_weight'] = mm_lm_weight['state_dict']  # dict[str, tensor]
+
+    motion_mean = np.load(os.path.join(args.motion_metadata_dir, 'Mean.npy'))
+    motion_std = np.load(os.path.join(args.motion_metadata_dir, 'Std.npy'))
+    unimumo_state_dict['motion_mean'] = motion_mean
+    unimumo_state_dict['motion_std'] = motion_std
 
     torch.save(unimumo_state_dict, os.path.join(args.save_dir, 'unimumo_model.ckpt'))
 

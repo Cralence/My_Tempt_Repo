@@ -290,15 +290,18 @@ class MusicMotionTransformer(pl.LightningModule):
         duration: tp.Optional[float] = None,
         conditional_guidance_scale: tp.Optional[float] = None,
         temperature: tp.Optional[float] = None,
-    ) -> tp.Tuple[torch.LongTensor, torch.LongTensor, torch.LongTensor, torch.LongTensor, tp.List[str]]:
+        return_result_only: bool = False
+    ):
         attributes = self._prepare_tokens_and_attributes(batch[self.text_cond_key])
 
         music_gen, motion_gen = self._generate_tokens(
             attributes, duration=duration, temperature=temperature,
             conditional_guidance_scale=conditional_guidance_scale
         )
-
-        return music_gen, motion_gen, batch[self.music_key], batch[self.motion_key], batch[self.text_cond_key]
+        if return_result_only:
+            return music_gen, motion_gen
+        else:
+            return music_gen, motion_gen, batch[self.music_key], batch[self.motion_key], batch[self.text_cond_key]
 
     def generate_single_modality(
         self,
@@ -329,8 +332,9 @@ class MusicMotionTransformer(pl.LightningModule):
 
     def generate_captions(
         self,
-        batch: tp.Dict[str, tp.Union[torch.LongTensor, tp.List[str]]]
-    ) -> tp.Tuple[tp.List[str], torch.LongTensor, torch.LongTensor]:
+        batch: tp.Dict[str, tp.Union[torch.LongTensor, tp.List[str]]],
+        return_caption_only: bool = False
+    ) -> tp.Union[tp.List[str], tp.Tuple[tp.List[str], torch.LongTensor, torch.LongTensor]]:
         music_code, motion_code, text_cond = batch[self.music_key], batch[self.motion_key], batch[self.text_cond_key]
         batch_size = len(text_cond)
         descriptions: tp.List[tp.Optional[str]] = [None] * batch_size
@@ -341,7 +345,10 @@ class MusicMotionTransformer(pl.LightningModule):
         )
         captions = self.text_model.generate_caption(music_motion_context)
 
-        return captions, music_code, motion_code
+        if return_caption_only:
+            return captions
+        else:
+            return captions, music_code, motion_code
 
     @torch.no_grad()
     def _prepare_tokens_and_attributes(

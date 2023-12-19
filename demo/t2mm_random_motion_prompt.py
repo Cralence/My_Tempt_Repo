@@ -7,7 +7,7 @@ from os.path import join as pjoin
 import soundfile as sf
 import numpy as np
 import codecs as cs
-from unimumo.audio.audiocraft.models.builders import get_compression_model
+from unimumo.audio.audiocraft_.models.builders import get_compression_model
 import pandas as pd
 import random
 import json
