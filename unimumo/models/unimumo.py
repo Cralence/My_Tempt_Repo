@@ -67,16 +67,16 @@ class UniMuMo(nn.Module):
         assert motion_feature.ndim == 3 and motion_feature.shape[-1] == 263, \
             "motion feature should be of shape [B, 20 * duration, 263]"
         batch_size = motion_feature.shape[0]
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
         # ensure that the motion length is even, so that it can be encoded by the motion vqvae
         target_motion_length = (motion_feature.shape[1] // 2) * 2
         motion_feature = motion_feature[:, :target_motion_length]
 
-        motion = torch.FloatTensor(self.normalize_motion(motion_feature)).to(self.motion_vqvae.device)
+        motion = torch.FloatTensor(self.normalize_motion(motion_feature)).to(device)
 
         # create zero waveform tensor of the same duration for joint encoding
-        empty_waveform = torch.zeros((batch_size, 1, target_motion_length // 2 * 5 * 640)).to(self.motion_vqvae.device)
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', self.motion_vqvae.device, self.music_motion_lm.device)
+        empty_waveform = torch.zeros((batch_size, 1, target_motion_length // 2 * 5 * 640)).to(device)
 
         _, motion_emb = self.motion_vqvae.encode(x_music=empty_waveform, x_motion=motion)
         return self.motion_vqvae.quantizer.encode(motion_emb)
@@ -86,11 +86,12 @@ class UniMuMo(nn.Module):
         if waveform.ndim == 2:
             waveform = waveform.squeeze(1)
         assert waveform.ndim == 3 and waveform.shape[1] == 1, "waveform should be of shape [B, 1, 32000 * duration]"
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
         # ensure that the music and motion of the same duration can be encoded
         music_target_length = (waveform.shape[-1] // 640 // 5) * 640 * 5
         waveform = waveform[..., :music_target_length]
-        waveform = torch.FloatTensor(waveform).to(self.music_vqvae.device)
+        waveform = torch.FloatTensor(waveform).to(device)
 
         return self.music_vqvae.encode(waveform)[0]
 
