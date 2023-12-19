@@ -146,6 +146,7 @@ class UniMuMo(nn.Module):
         motion_feature = np.tile(motion_feature, (batch_size, 1, 1))
 
         motion_code = self.encode_motion(motion_feature)
+        print('!!!!!!!!!!!!!!!!!!!', motion_code.shape, text_description)
         music_gen = self.music_motion_lm.generate_single_modality(
             music_code=None,
             motion_code=motion_code,
