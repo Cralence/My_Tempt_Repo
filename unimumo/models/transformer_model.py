@@ -280,6 +280,7 @@ class MusicMotionTransformer(pl.LightningModule):
         attributes = self.model.att_dropout(attributes)
 
         tokenized = self.model.condition_provider.tokenize(attributes, device=self.device)
+        print('!!!!!!!!!!!!!11', self.device)
         condition_tensors = self.model.condition_provider(tokenized)
 
         return condition_tensors

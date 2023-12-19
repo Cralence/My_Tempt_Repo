@@ -198,8 +198,6 @@ class UniMuMo(nn.Module):
         code_length = min(music_code.shape[-1], motion_code.shape[-1])
         music_code = music_code[..., :code_length]
         motion_code = motion_code[..., :code_length]
-        print(music_code.shape, motion_code.shape)
-        print(motion_code.device, motion_code.device)
 
         batch = {
             'text': [''],
