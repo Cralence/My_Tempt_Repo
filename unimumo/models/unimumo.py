@@ -76,6 +76,7 @@ class UniMuMo(nn.Module):
 
         # create zero waveform tensor of the same duration for joint encoding
         empty_waveform = torch.zeros((batch_size, 1, target_motion_length // 2 * 5 * 640)).to(self.motion_vqvae.device)
+        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', self.motion_vqvae.device, self.music_motion_lm.device)
 
         _, motion_emb = self.motion_vqvae.encode(x_music=empty_waveform, x_motion=motion)
         return self.motion_vqvae.quantizer.encode(motion_emb)
