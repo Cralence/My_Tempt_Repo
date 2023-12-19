@@ -185,7 +185,7 @@ if __name__ == "__main__":
         motion_to_visualize = model.motion_vec_to_joint(
             torch.Tensor(model.normalize_motion(motion))
         )
-        motion_to_visualize = np.tile(motion_to_visualize, (batch_size, 1, 1))
+        motion_to_visualize = np.tile(motion_to_visualize, (batch_size, 1, 1, 1))
         print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
 
     elif generation_target == 'mo':
