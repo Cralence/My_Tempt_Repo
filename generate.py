@@ -3,10 +3,12 @@ import os
 import torch
 import numpy as np
 import random
+import librosa
 from pytorch_lightning import seed_everything
 
 from unimumo.models import UniMuMo
 from unimumo.util import get_music_motion_prompt_list
+from unimumo.motion.utils import visualize_music_motion
 
 
 if __name__ == "__main__":
@@ -146,6 +148,9 @@ if __name__ == "__main__":
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )
+        waveform_to_visualize = waveform_gen
+        motion_to_visualize = motion_gen['joint']
+        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
 
     elif generation_target == 'mu':
         assert os.path.exists(motion_path), 'When generating motion-to-music, motion path should be provided'
@@ -153,6 +158,9 @@ if __name__ == "__main__":
         motion = np.load(motion_path)
         # by default the motion is from aist, so down sample by 3
         motion = motion[::3]
+        motion = motion[None, ...]
+        # cut motion to generate duration
+        motion = motion[:, :20 * duration]
 
         waveform_gen = model.generate_music_from_motion(
             motion_feature=motion,
@@ -160,11 +168,60 @@ if __name__ == "__main__":
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )
+        waveform_to_visualize = waveform_gen
+        motion_to_visualize = model.motion_vec_to_joint(
+            torch.Tensor(model.normalize_motion(motion))
+        )
+        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
 
     elif generation_target == 'mo':
-        assert os.path.exists(music_path), 'When generation music-to-motion, music path should be provided'
+        assert os.path.exists(music_path), 'When generating music-to-motion, music path should be provided'
 
+        waveform, _ = librosa.load(music_path, sr=32000)
+        # cut waveform to generate duration
+        waveform = waveform[:32000 * duration]
+        waveform = waveform[None, None, ...]  # [1, 1, 32000 * duration]
 
+        motion_gen = model.generate_motion_from_music(
+            waveform=waveform,
+            text_description=text_description,
+            conditional_guidance_scale=guidance_scale,
+            temperature=temperature
+        )
+        waveform_to_visualize = waveform
+        motion_to_visualize = motion_gen['joint']
+        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
+
+    else: # generate text
+        # TODO: currently do not support generating text for single modality
+        assert os.path.exists(music_path) and os.path.exists(motion_path), \
+            'When generating text, both music and motion should be provided'
+        # load motion
+        motion = np.load(motion_path)
+        # by default the motion is from aist, so down sample by 3
+        motion = motion[::3]
+        motion = motion[None, ...]
+        # cut motion to generate duration
+        motion = motion[:, :20 * duration]
+        # load music
+        waveform, _ = librosa.load(music_path, sr=32000)
+        # cut waveform to generate duration
+        waveform = waveform[:32000 * duration]
+        waveform = waveform[None, None, ...]  # [1, 1, 32000 * duration]
+
+        captions = model.generate_text(
+            waveform=waveform,
+            motion_feature=motion
+        )
+        for text in captions:
+            print(f'Generated caption: {text}')
+
+        waveform_to_visualize = waveform
+        motion_to_visualize = motion
+        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
+
+    # visualize music and motion
+    visualize_music_motion(waveform=waveform_to_visualize, joint=motion_to_visualize, save_dir=save_path)
 
 
 

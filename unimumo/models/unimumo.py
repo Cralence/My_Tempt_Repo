@@ -41,7 +41,6 @@ class UniMuMo(nn.Module):
 
         self.motion_mean = motion_mean
         self.motion_std = motion_std
-        self.motion_vec_to_joint = partial(motion_vec_to_joint, motion_mean=motion_mean, motion_std=motion_std)
 
     @staticmethod
     def from_checkpoint(ckpt: str) -> 'UniMuMo':
@@ -56,7 +55,7 @@ class UniMuMo(nn.Module):
         waveform = waveform.cpu().squeeze(1).numpy()  # [b, 32000 * duration]
 
         motion_feature = self.motion_vqvae.decode_from_code(music_gen, motion_gen)  # [b, 20 * duration, 263]
-        motion_joint = self.motion_vec_to_joint(vec=motion_feature)  # [b, 20 * duration, 22, 3]
+        motion_joint = self.motion_vec_to_joint(motion_feature)  # [b, 20 * duration, 22, 3]
         motion_feature = motion_feature.cpu().numpy()
         motion_feature = self.denormalize_motion(motion_feature)
 
@@ -128,6 +127,8 @@ class UniMuMo(nn.Module):
         conditional_guidance_scale: tp.Optional[float] = None,
         temperature: tp.Optional[float] = None
     ) -> np.ndarray:
+        if motion_feature.ndim == 2:
+            motion_feature = motion_feature[None, ...]
         assert motion_feature.ndim == 3 and motion_feature.shape[-1] == 263, \
             "motion feature should be of shape [B, 20 * duration, 263]"
 
@@ -179,6 +180,10 @@ class UniMuMo(nn.Module):
     ) -> tp.List[str]:
         music_code = self.encode_music(waveform)
         motion_code = self.encode_motion(motion_feature)
+        # ensure music code and motion code are of the same length
+        code_length = min(music_code.shape[-1], motion_code.shape[-1])
+        music_code = music_code[..., :code_length]
+        motion_code = motion_code[..., :code_length]
 
         batch = {
             'text': [''],
@@ -193,6 +198,8 @@ class UniMuMo(nn.Module):
     def normalize_motion(self, vec: np.ndarray) -> np.ndarray:
         return (vec - self.motion_mean) / self.motion_std
 
+    def motion_vec_to_joint(self, vec: torch.Tensor) -> np.ndarray:
+        return motion_vec_to_joint(vec=vec, motion_mean=self.motion_mean, motion_std=self.motion_std)
 
 
 
