@@ -198,7 +198,7 @@ class MusicMotionDataset(Dataset):
                 alignment = dtw(vbeats, mbeats, keep_internals=True, step_pattern=rabinerJuangStepPattern(6, "d"))
                 wq = warp(alignment, index_reference=False)
                 final_motion = interpolation.interp(motion, wq)
-            except ValueError:  # if alignment fails, then just use the original motion
+            except Exception:  # if alignment fails, then just use the original motion
                 print('bad motion', motion.shape)
                 final_motion = motion
         else:

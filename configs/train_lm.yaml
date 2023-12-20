@@ -51,7 +51,7 @@ data:
     batch_size_music_motion: 3
     batch_size_caption: 8
     wrap: True
-    num_workers: 2
+    num_workers: 4
     train:
       target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:

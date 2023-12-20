@@ -112,8 +112,8 @@ def main(args):
         if len(generated_motion_list) >= num_pair_each_music:
             print(f'{data_idx + 1}/{len(music_data)} already exists!')
             continue
-
         print(f'{data_idx + 1}/{len(music_data)}', end=' ')
+
         music_path = pjoin(music_dir, f'{music_id}.mp3')
         waveform, sr = librosa.load(music_path, sr=32000)
         music_duration = 30
@@ -121,6 +121,7 @@ def main(args):
         max_music_length = int(music_duration * 32000)
 
         waveform = torch.FloatTensor(waveform)
+        # cut or pad to max_music_length
         if waveform.shape[0] != max_music_length:
             if waveform.shape[0] > max_music_length:
                 waveform = waveform[:max_music_length]
@@ -131,67 +132,63 @@ def main(args):
         waveform = waveform[None, None, ...]
         print(f'music shape: {waveform.shape}', end=' ')
 
+        # load music beat
         feature_dict = torch.load(pjoin(feature_dir, f'{music_id}.pth'))
 
         for pair_idx in range(num_pair_each_music):
             while True:
                 mbeat = feature_dict['beat']
+
                 random_motion_idx = random.randint(0, len(motion_data[split]) - 1)
                 motion_name = motion_data[split][random_motion_idx]
 
+                # load motion, and cut or repeat to match the target motion length
                 motion = np.load(pjoin(motion_dir, split, 'joint_vecs', motion_name + '.npy'))
                 if motion_name in humanml3d or motion_name in dancedb:
                     motion_length = motion.shape[0]
-                    # if motion length longer than 10 sec
+
                     aug = max_motion_length // motion_length
-                    if aug < 1:
+                    if aug < 1:  # if loaded motion is longer than target length, then randomly cut
                         start_idx = random.randint(0, motion_length - max_motion_length)
                         motion = motion[start_idx:start_idx + max_motion_length]
-                        # length = self.max_motion_length
                     elif aug == 1:
-                        if max_motion_length - motion_length <= 50:
-                            motion = motion
-                            # length = motion_length
+                        if max_motion_length - motion_length <= 50:  # loaded motion is roughly
+                            motion = motion                          # the same length as target length
                         else:
-                            motion = np.tile(motion, (2, 1))
-                            # length = motion.shape[0]
-                    else:
+                            motion = np.tile(motion, (2, 1))  # repeat motion two times
+                    else:  # if target length is more than 2 times longer than loaded motion, then repeat motion
                         max_repeat = aug
                         if max_motion_length - max_repeat * motion.shape[0] > 50:
                             max_repeat += 1
                         motion = np.tile(motion, (max_repeat, 1))
-                        # length = motion.shape[0]
-                else:
+                else:  # if motion is from AIST++, down sample it 3 times to 20 fps
                     motion_length = motion.shape[0] // 3  # 60 fps -> 20 fps
-                    if max_motion_length // motion_length < 1:
-                        start_idx = random.randint(0, motion_length - max_motion_length)
+
+                    if max_motion_length // motion_length < 1:  # if loaded motion is longer than target length,
+                        start_idx = random.randint(0, motion_length - max_motion_length)  # then randomly cut
                         motion = motion[start_idx * 3:(start_idx + max_motion_length) * 3:3]
-                        # length = self.max_motion_length
-                    elif max_motion_length // motion_length == 1:
-                        motion = motion[::3]
-                        # length = motion.shape[0]
-                    else:
+                    elif max_motion_length // motion_length == 1:  # loaded motion is roughly
+                        motion = motion[::3]                       # the same length as target length
+                    else:  # if target length is more than 2 times longer than loaded motion, then repeat motion
                         max_repeat = max_motion_length // motion_length + 1
                         motion = motion[::3]
-                        # repeat = random.randint(1, max_repeat)
                         motion = np.tile(motion, (max_repeat, 1))
-
+                # scale mbeat to 20 fps
                 scale_ratio = 32000 / 20
                 mbeat = (mbeat / scale_ratio).numpy()
                 mbeat = (np.rint(mbeat)).astype(int)
 
-                # augmented motion
-                # T x 263
                 try:
+                    # get motion visual beats
                     rec_ric_data = motion_process.recover_from_ric(torch.from_numpy(motion).unsqueeze(0).float(), 22)
                     skel = rec_ric_data.squeeze().numpy()
                     directogram, vimpact = visual_beat.calc_directogram_and_kinematic_offset(skel)
-                    peakinds, peakvals = visual_beat.get_candid_peaks(
-                        vimpact, sampling_rate=20)
-                    tempo_bpms, result = visual_beat.getVisualTempogram(
-                        vimpact, window_length=4, sampling_rate=20)
+                    peakinds, peakvals = visual_beat.get_candid_peaks(vimpact, sampling_rate=20)
+                    tempo_bpms, result = visual_beat.getVisualTempogram(vimpact, window_length=4, sampling_rate=20)
                     visual_beats = visual_beat.find_optimal_paths(
-                        list(map(lambda x, y: (x, y), peakinds, peakvals)), result, sampling_rate=20)
+                        list(map(lambda x, y: (x, y), peakinds, peakvals)), result, sampling_rate=20
+                    )
+                    # turn visual beats into binary
                     vbeats = np.zeros((skel.shape[0]))
                     if len(visual_beats) != 0:
                         for beat in visual_beats[0]:
@@ -201,35 +198,26 @@ def main(args):
                     print('bad motion')
                     continue
 
-                mbeats = np.zeros((max_motion_length))
+                # turn music beats also into binary
+                mbeats = np.zeros(max_motion_length)
                 for beat in mbeat:
                     if beat < len(mbeats):
                         mbeats[beat] = 1
 
-                '''
-                num_vbeat = np.sum(vbeats)
-                num_mbeat = np.sum(mbeats)
-                smaller = num_mbeat if num_mbeat < num_vbeat else num_vbeat
-                larger = num_mbeat if num_mbeat > num_vbeat else num_vbeat
-                if (larger - smaller) / larger > 0.2 and abs(larger - smaller*2) / larger > 0.2:
-                    print(f'Not align: num mbeat: {num_mbeat}, num vbeat: {num_vbeat}')
-                    continue
-                '''
-
                 try:
-                    alignment = dtw(
-                        vbeats, mbeats, keep_internals=True, step_pattern=rabinerJuangStepPattern(6, "d"))
+                    alignment = dtw(vbeats, mbeats, keep_internals=True, step_pattern=rabinerJuangStepPattern(6, "d"))
                     wq = warp(alignment, index_reference=False)
                     final_motion = interpolation.interp(motion, wq)
                     break
-                except ValueError:
+                except Exception:  # if alignment fails, try a new one
                     print('bad', motion.shape)
                     continue
 
             motion = (final_motion - motion_mean) / motion_std
             motion = torch.FloatTensor(motion)  # T, D
 
-            if motion.shape[0] != max_motion_length:  # pad the motion into the same shape
+            # pad the motion into the same shape
+            if motion.shape[0] != max_motion_length:
                 if motion.shape[0] > max_motion_length:
                     motion = motion[:max_motion_length, :]
                 else:
@@ -241,49 +229,15 @@ def main(args):
 
             zero_waveform = torch.zeros_like(waveform)
 
-            input_batch = {'motion': motion.to(device), 'music': zero_waveform.to(device)}
-
-            music_emb, motion_emb = model.encode(input_batch)
-            #
-            # q_res_music = model.quantizer(music_emb, 50)  # 50 is the fixed sample rate
-            # music_code = model.quantizer.encode(music_emb)
-            #
+            music_emb, motion_emb = model.encode(zero_waveform.to(device), motion.to(device))
             motion_code = model.quantizer.encode(motion_emb)
-            #
-            # motion_quantized_representation = model.quantizer.decode(motion_code)
-            # music_quantized_representation = torch.zeros_like(motion_quantized_representation).to(device)
-            # motion_recon = model.decode(music_quantized_representation, motion_quantized_representation).cpu()
-            #
-            # curr_loss = torch.nn.functional.mse_loss(motion, motion_recon)
-            # print(f'split: {split}, {data_idx}/{len(music_data)}, loss: {curr_loss}')
-            #
             motion_token = motion_code.squeeze()
+
             print(f'motion {pair_idx} feature shape: ', motion_token.shape, end='; ')
             motion_token = motion_token.cpu()
 
             motion_token_save_path = pjoin(motion_feature_save_dir, music_id + f'_!motion_code!_{motion_name}.pth')
             torch.save(motion_token, motion_token_save_path)  # 4, 1500
-            '''
-            if curr_loss > 0.3:
-                joint = motion_vec_to_joint(motion_recon, motion_mean, motion_std)
-                gt_joint = motion_vec_to_joint(motion, motion_mean, motion_std)
-        
-                os.makedirs(save_video_dir, exist_ok=True)
-        
-                motion_filename = f'bad_motion_{motion_name}_recon.mp4'
-                motion_save_path = pjoin(save_video_dir, motion_filename)
-                skel_animation.plot_3d_motion(
-                    motion_save_path, kinematic_chain, joint[0], title='None', vbeat=None,
-                    fps=20, radius=4
-                )
-        
-                gt_motion_filename = f'bad_motion_{motion_name}_gt.mp4'
-                motion_save_path = pjoin(save_video_dir, gt_motion_filename)
-                skel_animation.plot_3d_motion(
-                    motion_save_path, kinematic_chain, gt_joint[0], title='None', vbeat=None,
-                    fps=20, radius=4
-                )
-            '''
         print('')
 
 
