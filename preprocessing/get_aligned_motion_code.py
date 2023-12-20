@@ -10,6 +10,15 @@ from pytorch_lightning import seed_everything
 import argparse
 from dtw import *
 
+import sys
+from pathlib import Path
+# Get the directory of the current script
+current_dir = Path(__file__).parent
+# Get the parent directory
+parent_dir = current_dir.parent
+# Add the parent directory to sys.path
+sys.path.append(str(parent_dir))
+
 from unimumo.alignment import visual_beat, interpolation
 from unimumo.motion import motion_process
 from unimumo.util import load_model_from_config
