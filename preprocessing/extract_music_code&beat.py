@@ -7,8 +7,17 @@ from os.path import join as pjoin
 import librosa
 import argparse
 
-from ..unimumo.audio.audiocraft_.models.builders import get_compression_model
-from ..unimumo.audio.beat_detection.test_beat_detection import get_music_beat, build_beat_tracker
+import sys
+from pathlib import Path
+# Get the directory of the current script
+current_dir = Path(__file__).parent
+# Get the parent directory
+parent_dir = current_dir.parent
+# Add the parent directory to sys.path
+sys.path.append(str(parent_dir))
+
+from unimumo.audio.audiocraft_.models.builders import get_compression_model
+from unimumo.audio.beat_detection.test_beat_detection import get_music_beat, build_beat_tracker
 
 # extract the music code using Encodec
 # and detect the music beat
