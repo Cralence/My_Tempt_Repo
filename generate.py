@@ -144,11 +144,14 @@ if __name__ == "__main__":
     music_prompt_list, motion_prompt_list = get_music_motion_prompt_list(music_meta_dir)
     text_description_list = []
     for _ in range(batch_size):
-        if music_description is None:
-            music_description = random.choice(music_prompt_list)
-        if motion_description is None:
-            motion_description = random.choice(motion_prompt_list)
-        text_description_list.append(music_description + ' ' + motion_description)
+        if music_description is None and motion_description is None:
+            text_description_list.append(random.choice(music_prompt_list) + ' ' + random.choice(motion_prompt_list))
+        elif music_description is None:
+            text_description_list.append(random.choice(music_prompt_list) + ' ' + motion_description)
+        elif motion_description is None:
+            text_description_list.append(music_description + ' ' + random.choice(motion_prompt_list))
+        else:
+            text_description_list.append(music_description + ' ' + motion_description)
 
     # load model
     model = UniMuMo.from_checkpoint(model_ckpt)
@@ -216,8 +219,8 @@ if __name__ == "__main__":
             'When generating text, both music and motion should be provided'
         # load motion
         motion = np.load(motion_path)
-        # by default the motion is from aist, so down sample by 3
-        motion = motion[::3]
+        if motion_path.split('/')[-1] == 'g':  # the motion file is from AIST++
+            motion = motion[::3]
         motion = motion[None, ...]
         # cut motion to generate duration
         motion = motion[:, :int(20 * duration)]

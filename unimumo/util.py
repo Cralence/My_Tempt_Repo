@@ -36,7 +36,7 @@ def load_model_from_config(config, ckpt, verbose=False):
 
 
 def get_music_motion_prompt_list(meta_dir):
-    with open(os.path.join(meta_dir, 'music4all_captions.json'), 'r') as caption_fd:
+    with open(os.path.join(meta_dir, 'music4all_captions_val_test.json'), 'r') as caption_fd:
         music_caption = json.load(caption_fd)
     music_prompt_list = [v for k, v in music_caption.items()]
 
