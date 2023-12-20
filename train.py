@@ -349,8 +349,6 @@ if __name__ == "__main__":
             config.data.params.batch_size = config.data.params.batch_size_music_motion
         elif opt.stage == "train_cation":
             config.data.params.batch_size = config.data.params.batch_size_caption
-        print(f'????????????????', config.data)
-        print(f'!!!!!!!!!!!!!!!!, {config.data.params.batch_size}')
         # set training stage and relevant parameters for the model
         if opt.stage != "train_vqvae":
             config.model.params.stage = opt.stage

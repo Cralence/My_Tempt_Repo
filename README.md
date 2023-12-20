@@ -1,25 +1,50 @@
+<div align="center">  
 
-<div align="center">    
-    <h1>Official Repo for UniMuMo</h1>
+# UniMuMo: Unified Text, Music and Motion Generation
+
+<a href='https://www.google.com/'><img src='https://img.shields.io/badge/Demo-Page-blue'></a> 
+[![Paper](http://img.shields.io/badge/paper-arxiv.2308.12064-B31B1B.svg)](https://www.google.com/)
+
 </div>
- 
-<div align="center">
-    <h2> UniMuMo: Unified Text, Music and Motion Generation </h2>
 
-[![Paper](http://img.shields.io/badge/paper-arxiv.2308.12064-B31B1B.svg)](https://arxiv.org/abs/2308.12064)
-[![Conference](http://img.shields.io/badge/ICCV-2023-4b44ce.svg)](https://openaccess.thecvf.com/content/ICCV2023/html/Yang_SILT_Shadow-Aware_Iterative_Label_Tuning_for_Learning_to_Detect_Shadows_ICCV_2023_paper.html)
+---
 
-![image](https://github.com/Cralence/SILT/blob/main/assets/NL_pipeline.png)
+This is the official repository of **UniMuMo**, a unified music, motion and text generation model. 
+In this repository, we present model and data processing code, as well as the model weights.
 
-<!--  
-Conference   
--->   
-</div>
- 
-## Description   
-This is the pytorch implementation of  the ICCV 2023 paper "SILT: Shadow-aware Iterative Label Tuning for Learning to 
-Detect Shadows from Noisy Labels" by Han Yang, Tianyu Wang, Xiaowei Hu and Chi-Wing Fu.
+---
 
+## Brief Introduction
+
+some introduction
+
+with one images
+
+## Quick Start
+
+### 1. Conda environment
+
+### 2. Download pretrained weight
+
+### 3. Run the model
+
+## Train the Model
+
+### 1. Prepare the datasets
+
+### 2. Preprocess the data
+
+### 3. Train motion VQ-VAE
+
+### 4. Train music-motion LM
+
+### 5. Train captioning model
+
+### 6. Integrate the trained weights
+
+## Citation
+
+## Acknowledgement
 
 ## How to Run   
 1. Install dependencies   
