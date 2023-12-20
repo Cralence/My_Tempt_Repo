@@ -1,15 +1,10 @@
-import json
+from unimumo.models import UniMuMo
+from unimumo.motion.utils import visualize_music_motion
 
+model = UniMuMo.from_checkpoint('final_model/unimumo_model.ckpt')
+model = model.cuda()
+model.music_motion_lm = model.music_motion_lm.cuda()
 
-with open('data/music/music4all_captions.json', 'r') as caption_fd:
-    captions = json.load(caption_fd)
+waveform_gen, motion_gen = model.generate_music_motion(batch_size=5)
 
-names = []
-with open('music4all_val.txt', 'r') as f:
-    for line in f.readlines():
-        names.append(line.strip())
-with open('music4all_test.txt', 'r') as f:
-    for line in f.readlines():
-        names.append(line.strip())
-print('here')
-captions = {k: v for k, v in captions.items() if k in names}
+visualize_music_motion(waveform_gen, motion_gen['joint'], 'gen_results')

@@ -47,6 +47,7 @@ So please download the separate weights from here.
 After downloaded, please put the weights into folder `pretrained`
 
 ### 3. Run the model
+For testing the generation results, run the following command:
 ```bash
 python generate.py --help
   --ckpt                The path to the trained model
@@ -87,6 +88,20 @@ python generate.py --ckpt path_to_weight -t mu -mu_d descriptions_for_music -mo_
 python generate.py --ckpt path_to_weight -t text -mu_p path_to_music_condition -mo_p path_to_motion_condition
 ```
 
+For loading the model, here is an example:
+```python
+from unimumo.models import UniMuMo
+from unimumo.motion.utils import visualize_music_motion
+
+model = UniMuMo.from_checkpoint('path_to_checkpoint')
+model = model.cuda()
+model.music_motion_lm = model.music_motion_lm.cuda()
+
+waveform_gen, motion_gen = model.generate_music_motion()
+
+visualize_music_motion(waveform_gen, motion_gen['joint'], 'gen_results')
+```
+
 ## Train the Model
 
 ### 1. Prepare the datasets
@@ -124,13 +139,35 @@ Recovering training can be achieved by appending `-r path_to_previous_checkpoint
 Reconstruction loss can be slightly reduced by fine-tuning the motion VQ-VAE with `configs/train_motion_vqvae_finetune.yaml`. 
 
 ### 4. Pair music with motion and extract motion code
-
+After training the motion VQ-VAE, we use Dynamic Time Warping to pair each music track with several motions and 
+extract the motion codes from the augmented motion sequences prior to training the music-motion LM. Please first set the
+correct data paths and run:
+```bash
+python preprocessing/get_aligned_motion_code.py --start 0.0 --end 1.0
+```
+You can also set `--start` and `--end` to manually distribute the work.
 
 ### 5. Train music-motion LM
+Please first check the settings in `configs/train_lm.yaml`, and run:
+```bash
+python train.py --stage train_music_motion --base configs/train_lm.yaml
+```
+Similarly, training can be recovered by appending `-r path_to_previous_checkpoint`.
 
 ### 6. Train captioning model
+Please run:
+```bash
+python train.py --stage train_caption --mm_ckpt path_to_last_stage_model --base configs/train_lm.yaml
+```
+Note that it is required to provide the checkpoint of previous stage in `--mm_ckpt`, since the captioning model is built on
+the trained music-motion LM.
 
 ### 7. Integrate the trained weights
+Finally, we have three separate model checkpoints: an Encodec, a motion VQ-VAE and a music-motion LM. We combine them into
+a single checkpoint that can be directly loaded by `class UniMuMo` by running:
+```bash
+python unimumo/merge_model_checkpoints.py (provide the paths for all the checkpoints, configs and metadata...)
+```
 
 ## Citation
 
