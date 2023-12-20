@@ -5,7 +5,6 @@ einops==0.7.0
 flashy==0.0.2
 julius==0.2.7
 librosa==0.10.1
-madmom==0.16.1
 matplotlib==3.3.4
 num2words
 omegaconf==2.3.0
@@ -15,4 +14,4 @@ sentencepiece
 spacy==3.7.2
 tensorboard==2.12.3
 transformers==4.35.2
-
+madmom==0.16.1
