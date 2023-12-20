@@ -394,13 +394,25 @@ class MusicMotionTransformer(pl.LightningModule):
         return gen_tokens
 
     def configure_optimizers(self):
-        opt = torch.optim.AdamW(
-            params=self.parameters(),
-            lr=self.optimization_config['learning_rate'],
-            betas=self.optimization_config['betas'],
-            weight_decay=self.optimization_config['weight_decay'],
-            eps=self.optimization_config['eps']
-        )
+        opt = None
+        if self.stage == 'train_music_motion':
+            opt = torch.optim.AdamW(
+                params=self.model.parameters(),
+                lr=self.optimization_config['learning_rate'],
+                betas=self.optimization_config['betas'],
+                weight_decay=self.optimization_config['weight_decay'],
+                eps=self.optimization_config['eps']
+            )
+        elif self.stage == 'train_caption':
+            opt = torch.optim.AdamW(
+                params=self.text_model.parameters(),
+                lr=self.optimization_config['learning_rate'],
+                betas=self.optimization_config['betas'],
+                weight_decay=self.optimization_config['weight_decay'],
+                eps=self.optimization_config['eps']
+            )
+        else:
+            ValueError()
 
         if self.scheduler_config is None:
             return opt
