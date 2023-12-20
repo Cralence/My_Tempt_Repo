@@ -142,11 +142,13 @@ if __name__ == "__main__":
     # currently unconditional generation still not works well, so if description is not provided,
     # we randomly load prompts from our datasets
     music_prompt_list, motion_prompt_list = get_music_motion_prompt_list(music_meta_dir)
-    if music_description is None:
-        music_description = random.choice(music_prompt_list)
-    if motion_description is None:
-        motion_description = random.choice(motion_prompt_list)
-    text_description = music_description + ' ' + motion_description
+    text_description_list = []
+    for _ in range(batch_size):
+        if music_description is None:
+            music_description = random.choice(music_prompt_list)
+        if motion_description is None:
+            motion_description = random.choice(motion_prompt_list)
+        text_description_list.append(music_description + ' ' + motion_description)
 
     # load model
     model = UniMuMo.from_checkpoint(model_ckpt)
@@ -156,15 +158,14 @@ if __name__ == "__main__":
 
     if generation_target == 'mumo':
         waveform_gen, motion_gen = model.generate_music_motion(
-            text_description=[text_description],
-            batch_size=batch_size,
+            text_description=text_description_list,
             duration=duration,
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )
         waveform_to_visualize = waveform_gen
         motion_to_visualize = motion_gen['joint']
-        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
+        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description_list}')
 
     elif generation_target == 'mu':
         assert os.path.exists(motion_path), 'When generating motion-to-music, motion path should be provided'
@@ -178,7 +179,7 @@ if __name__ == "__main__":
 
         waveform_gen = model.generate_music_from_motion(
             motion_feature=motion,
-            text_description=[text_description],
+            text_description=text_description_list,
             batch_size=batch_size,
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
@@ -188,7 +189,7 @@ if __name__ == "__main__":
             torch.Tensor(model.normalize_motion(motion))
         )
         motion_to_visualize = np.tile(motion_to_visualize, (batch_size, 1, 1, 1))
-        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
+        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description_list}')
 
     elif generation_target == 'mo':
         assert os.path.exists(music_path), 'When generating music-to-motion, music path should be provided'
@@ -200,14 +201,14 @@ if __name__ == "__main__":
 
         motion_gen = model.generate_motion_from_music(
             waveform=waveform,
-            text_description=[text_description],
+            text_description=text_description_list,
             batch_size=batch_size,
             conditional_guidance_scale=guidance_scale,
             temperature=temperature
         )
         waveform_to_visualize = np.tile(waveform, (batch_size, 1, 1))
         motion_to_visualize = motion_gen['joint']
-        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
+        print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description_list}')
 
     else:  # generate text
         # TODO: currently do not support generating text for single modality
