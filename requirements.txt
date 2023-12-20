@@ -6,8 +6,4 @@ madmom==0.16.1
 matplotlib==3.3.4
 omegaconf==2.3.0
 pytorch-lightning==1.9.1
-torch==1.13.1+cu116
-torchaudio==0.13.1+cu116
-torchmetrics==1.2.0
-torchvision==0.14.1+cu116
 transformers==4.35.2
