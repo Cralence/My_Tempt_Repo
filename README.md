@@ -17,11 +17,13 @@ In this repository, we present model and data processing code, as well as the mo
 
 ---
 
-## Brief Introduction
+[//]: # (## Brief Introduction)
 
-some introduction
+[//]: # ()
+[//]: # (some introduction)
 
-with one images
+[//]: # ()
+[//]: # (with one images)
 
 ## Quick Start
 
