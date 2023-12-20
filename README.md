@@ -128,7 +128,7 @@ To speed up training, we use [Encodec](https://github.com/facebookresearch/audio
 extract all the music codes and use [drum-aware4beat](https://github.com/SunnyCYC/drum-aware4beat) to track 
 the music beat before training. Please set the correct data path in `preprocessing/extract_music_code&beat.py` and run:
 ```bash
-python preprocessing/extract_music_code&beat.py --start 0.0 --end 1.0
+python preprocessing/extract_music_code_beat.py --start 0.0 --end 1.0
 ```
 Since this process takes a long time, if you have multiple machines, you can split the work by setting `--start` and 
 `--end` to specify the start and end point of each job.
