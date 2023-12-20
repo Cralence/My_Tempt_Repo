@@ -20,6 +20,8 @@ def visualize_music_motion(waveform: np.ndarray, joint: np.ndarray, save_dir: st
     os.makedirs(save_dir, exist_ok=True)
 
     batch_size = waveform.shape[0]
+    music_path = None
+    motion_path = None
     for i in range(batch_size):
         music_path = pjoin(save_dir, 'music.mp3')
         try:
@@ -50,4 +52,3 @@ def visualize_music_motion(waveform: np.ndarray, joint: np.ndarray, save_dir: st
     # remove the separate music and motion file
     os.system(f'rm {music_path}')
     os.system(f'rm {motion_path}')
-

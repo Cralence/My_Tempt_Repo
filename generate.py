@@ -20,7 +20,7 @@ if __name__ == "__main__":
         type=str,
         required=False,
         help="The path to save model output",
-        default="./generate_results",
+        default="./gen_results",
     )
     parser.add_argument(
         "--ckpt",
@@ -35,46 +35,6 @@ if __name__ == "__main__":
         required=False,
         help="The path to music metadata dir",
         default="/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all",
-    )
-
-    # about generation settings
-    parser.add_argument(
-        "-gs",
-        "--guidance_scale",
-        type=float,
-        required=False,
-        default=3.0,
-        help="Guidance scale (Large => better quality and relavancy to text; Small => better diversity)",
-    )
-    parser.add_argument(
-        "--temperature",
-        type=float,
-        required=False,
-        default=None,
-        help="Temperature for generation",
-    )
-    parser.add_argument(
-        "-d",
-        "--duration",
-        type=float,
-        required=False,
-        default=10.0,
-        help="Generated music/motion time",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        required=False,
-        default=42,
-        help="Change this value (any integer number) will lead to a different generation result.",
-    )
-    parser.add_argument(
-        "-bs",
-        "--batch_size",
-        type=int,
-        required=False,
-        default=1,
-        help="Number of samples to generate for each prompt.",
     )
 
     # about input prompt
@@ -118,6 +78,47 @@ if __name__ == "__main__":
         choices=['mu', 'mo', 'mumo', 'text'],
         help="The output format to generate",
     )
+
+    # about generation settings
+    parser.add_argument(
+        "-gs",
+        "--guidance_scale",
+        type=float,
+        required=False,
+        default=3.0,
+        help="Guidance scale (Large => better quality and relavancy to text; Small => better diversity)",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        required=False,
+        default=None,
+        help="Temperature for generation",
+    )
+    parser.add_argument(
+        "-d",
+        "--duration",
+        type=float,
+        required=False,
+        default=10.0,
+        help="Generated music/motion time",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        required=False,
+        default=42,
+        help="Change this value (any integer number) will lead to a different generation result.",
+    )
+    parser.add_argument(
+        "-bs",
+        "--batch_size",
+        type=int,
+        required=False,
+        default=1,
+        help="Number of samples to generate for each prompt.",
+    )
+
     args = parser.parse_args()
 
     # sanity check of the arguments

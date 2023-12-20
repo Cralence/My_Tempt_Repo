@@ -8,7 +8,7 @@ import librosa
 import argparse
 
 from unimumo.audio.audiocraft_.models.builders import get_compression_model
-from unimumo.audio.beat_detection.track_beat import get_music_beat, build_beat_tracker
+from unimumo.audio.beat_detection.test_beat_detection import get_music_beat, build_beat_tracker
 
 # extract the music code using Encodec
 # and detect the music beat
@@ -130,7 +130,6 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-
     parser.add_argument(
         '-s',
         '--start',
@@ -147,9 +146,6 @@ if __name__ == '__main__':
         default=1.0,
         help='the end ratio of this preprocessing'
     )
-
     args = parser.parse_args()
+
     main(args)
-
-
-

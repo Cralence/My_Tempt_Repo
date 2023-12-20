@@ -14,10 +14,11 @@ from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from pytorch_lightning import LightningModule, Trainer
 
-from unimumo.motion import skel_animation
 from unimumo.audio.audiocraft_.models.builders import get_compression_model
 from unimumo.util import instantiate_from_config
-from unimumo.motion.motion_process import recover_from_ric
+from unimumo.motion.motion_process import motion_vec_to_joint
+from unimumo.motion import skel_animation
+from unimumo.motion.utils import kinematic_chain
 
 
 class MusicMotionLogger(Callback):
@@ -41,8 +42,6 @@ class MusicMotionLogger(Callback):
 
         # about saving audios and videos
         self.sr = sr
-        self.kinematic_chain = [[0, 2, 5, 8, 11], [0, 1, 4, 7, 10], [0, 3, 6, 9, 12, 15], [9, 14, 17, 19, 21],
-                                [9, 13, 16, 18, 20]]
         self.motion_dir = motion_dir
         self.mean = np.load(pjoin(self.motion_dir, 'Mean.npy'))
         self.std = np.load(pjoin(self.motion_dir, 'Std.npy'))
@@ -55,13 +54,7 @@ class MusicMotionLogger(Callback):
         self.max_videos_logged = max_video_logged
 
     def motion_vec_to_joint(self, vec: torch.Tensor) -> np.ndarray:
-        # vec: [bs, 200, 263]
-        mean = torch.tensor(self.mean).to(vec)
-        std = torch.tensor(self.std).to(vec)
-        vec = vec * std + mean
-        joint = recover_from_ric(vec, joints_num=22)
-        joint = joint.cpu().detach().numpy()
-        return joint
+        return motion_vec_to_joint(vec, self.mean, self.std)
 
     @rank_zero_only
     def log_local(
@@ -98,7 +91,7 @@ class MusicMotionLogger(Callback):
             os.makedirs(os.path.split(motion_path)[0], exist_ok=True)
             try:
                 skel_animation.plot_3d_motion(
-                    motion_path, self.kinematic_chain, motion[i], title="None", vbeat=None,
+                    motion_path, kinematic_chain, motion[i], title="None", vbeat=None,
                     fps=self.motion_fps, radius=4
                 )
             except Exception:
@@ -115,7 +108,7 @@ class MusicMotionLogger(Callback):
             os.makedirs(os.path.split(gt_motion_path)[0], exist_ok=True)
             try:
                 skel_animation.plot_3d_motion(
-                    gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None,
+                    gt_motion_path, kinematic_chain, gt_motion[i], title="None", vbeat=None,
                     fps=self.motion_fps, radius=4
                 )
             except Exception:
@@ -169,7 +162,7 @@ class MusicMotionLogger(Callback):
             os.makedirs(os.path.split(gt_motion_path)[0], exist_ok=True)
             try:
                 skel_animation.plot_3d_motion(
-                    gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None,
+                    gt_motion_path, kinematic_chain, gt_motion[i], title="None", vbeat=None,
                     fps=self.motion_fps, radius=4
                 )
             except Exception:
@@ -320,8 +313,6 @@ class MotionVQVAELogger(Callback):
         self.disabled = disabled
 
         # about saving motion and videos
-        self.kinematic_chain = [[0, 2, 5, 8, 11], [0, 1, 4, 7, 10], [0, 3, 6, 9, 12, 15], [9, 14, 17, 19, 21],
-                                [9, 13, 16, 18, 20]]
         self.motion_dir = motion_dir
         self.mean = np.load(pjoin(self.motion_dir, 'Mean.npy'))
         self.std = np.load(pjoin(self.motion_dir, 'Std.npy'))
@@ -356,7 +347,7 @@ class MotionVQVAELogger(Callback):
             os.makedirs(os.path.split(motion_path)[0], exist_ok=True)
             try:
                 skel_animation.plot_3d_motion(
-                    motion_path, self.kinematic_chain, motion[i], title="None", vbeat=None,
+                    motion_path, kinematic_chain, motion[i], title="None", vbeat=None,
                     fps=self.motion_fps, radius=4
                 )
             except Exception:
@@ -372,7 +363,7 @@ class MotionVQVAELogger(Callback):
             os.makedirs(os.path.split(gt_motion_path)[0], exist_ok=True)
             try:
                 skel_animation.plot_3d_motion(
-                    gt_motion_path, self.kinematic_chain, gt_motion[i], title="None", vbeat=None,
+                    gt_motion_path, kinematic_chain, gt_motion[i], title="None", vbeat=None,
                     fps=self.motion_fps, radius=4
                 )
             except Exception:

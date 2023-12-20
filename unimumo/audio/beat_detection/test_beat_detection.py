@@ -1,15 +1,17 @@
 import os
-import numpy as np
 import soundfile
 import matplotlib.pyplot as plt
 from madmom.features.downbeats import DBNDownBeatTrackingProcessor as DownBproc
 import random
 import torch
 
-from unimumo.audio.beat_detection.models.BaselineBLSTM import RNNDownBeatProc as bsl_blstm
-
 import librosa
 import unimumo.audio.beat_detection.da_utils as utils
+from unimumo.audio.beat_detection.models.BaselineBLSTM import RNNDownBeatProc as bsl_blstm
+
+
+# This code is to test the result of the beat tracker.
+# It turns out to work very well
 
 
 def get_music_beat(music_pth, rnn, hmm_proc, device):
@@ -22,17 +24,6 @@ def get_music_beat(music_pth, rnn, hmm_proc, device):
         bpm = (len(beat) - 1) / (beat[-1] - beat[0]) * 60
     else:
         bpm = 0
-
-    '''    
-    if 0 < bpm < 107:
-        # double the bpm
-        inserted_beat = list(beat)
-        orinigal_len = len(inserted_beat)
-        for i in range(orinigal_len - 1):
-            inserted_beat.append((inserted_beat[i] + inserted_beat[i + 1]) / 2)
-        inserted_beat.sort()
-        beat = np.array(inserted_beat)
-        bpm = (len(beat) - 1) / (beat[-1] - beat[0]) * 60'''
 
     return beat, bpm
 
@@ -48,20 +39,6 @@ def build_beat_tracker(model_dir):
     rnn.load_state_dict(state)
 
     return rnn
-
-
-def random_cut_wav(waveform, segment_length, start, end):
-    waveform_length = waveform.shape[-1]
-    max_cut_length = end - start
-    assert waveform_length > 100, "Waveform is too short, %s" % waveform_length
-    assert max_cut_length > segment_length, "segment is too long"
-
-    if max_cut_length == segment_length:
-        return waveform[:, start: end], start, end
-    else:  # segment_length < max_cut_length
-        start_idx = random.randint(start, end - segment_length)
-        return waveform[:, start_idx: start_idx + segment_length], start_idx, start_idx + segment_length
-
 
 
 if __name__ == "__main__":
@@ -84,8 +61,6 @@ if __name__ == "__main__":
 
     hmm_proc = DownBproc(**modelinfo)
 
-    #pth = '../../../../../local_documentation/deep_learning/ChuangGan/'
-    #audio_file_path = os.path.join(pth, '000/000669.wav')
     audio_file_path = './BSufNdhhpiYFbK1D.wav'
 
     beat, bpm = get_music_beat(music_pth=audio_file_path, rnn=rnn, hmm_proc=hmm_proc, device=device)

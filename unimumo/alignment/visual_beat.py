@@ -2,6 +2,8 @@ import numpy as np
 import librosa
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+
 def d_x(im):
     d_im = np.zeros(im.shape)
     d_im[:, 0] = im[:, 0]
@@ -29,9 +31,11 @@ def d_x(im):
 
     return vimpact / normfactor
 
+
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
     return vector / np.linalg.norm(vector)
+
 
 def angle_between(v1, v2):
     """ Returns the angle in radians between vectors 'v1' and 'v2'::
@@ -39,6 +43,7 @@ def angle_between(v1, v2):
     v1_u = unit_vector(v1)
     v2_u = unit_vector(v2)
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
 
 def calc_directogram_and_kinematic_offset(skel):
     directogram = np.zeros((18, skel.shape[0] - 1))
@@ -72,6 +77,7 @@ def calc_directogram_and_kinematic_offset(skel):
     vimpact = d_x(directogram)
     return directogram, vimpact
 
+
 class Node(object):
     def __init__(self, frame,  offset_weight, sampling_rate, local_auto_correlation, prev_node=None):
         self.frame = frame
@@ -80,6 +86,7 @@ class Node(object):
         self.local_auto_correlation = local_auto_correlation
         self.prev_node = prev_node
         self.cum_score = None
+
 
 def getVisualTempogram(onset_envelope, window_length, sampling_rate):
     win_length = int(round(window_length * sampling_rate))
@@ -116,6 +123,7 @@ def getVisualTempogram(onset_envelope, window_length, sampling_rate):
     tempo_bpms = librosa.tempo_frequencies(result.shape[0], hop_length=hop_length, sr=sr)
     return tempo_bpms, result
 
+
 def get_candid_peaks(vimpact, sampling_rate):
     single_frame = 1.0 / sampling_rate
     delta = 0.015
@@ -143,6 +151,7 @@ def get_candid_peaks(vimpact, sampling_rate):
     peakvals = vimpact[peakinds]
     return peakinds, peakvals
 
+
 def weight_unary_objective(kin_offset_value, unary_weight=None):
     if unary_weight is None:
         unary_weight = 1.0
@@ -162,8 +171,10 @@ def autocor_binary_objective(left, right, local_auto_correlation, sampling_rate,
         score = -1
     return binary_weight * score
 
+
 def window_func(left, right, fps, max_separation=4):
     return np.fabs(left - right) < int(max_separation * fps)
+
 
 def find_optimal_paths(candid_visual_beats, auto_correlation, sampling_rate):
     """

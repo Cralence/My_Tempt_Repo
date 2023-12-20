@@ -1,6 +1,7 @@
 from unimumo.motion.common.quaternion import *
 import scipy.ndimage.filters as filters
 
+
 class Skeleton(object):
     def __init__(self, offset, kinematic_tree, device):
         self.device = device

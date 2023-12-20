@@ -84,17 +84,19 @@ class Resnet1D(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self,
-                 input_dim=263,
-                 output_dim=16,
-                 emb_dim_encoder=[256, 192, 128, 64, 32, 16],
-                 input_fps=20,
-                 rvq_fps=50,
-                 dilation_growth_rate=2,
-                 depth_per_res_block=6,
-                 activation='relu',
-                 norm=None,
-                 **kwargs):
+    def __init__(
+        self,
+        input_dim=263,
+        output_dim=16,
+        emb_dim_encoder=(256, 192, 128, 64, 32, 16),
+        input_fps=20,
+        rvq_fps=50,
+        dilation_growth_rate=2,
+        depth_per_res_block=6,
+        activation='relu',
+        norm=None,
+        **kwargs
+    ):
         super().__init__()
 
         self.input_fps = input_fps
@@ -135,17 +137,19 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self,
-                 input_dim=263,
-                 output_dim=16,
-                 emb_dim_decoder=[16, 32, 64, 128, 192, 256],
-                 input_fps=20,
-                 rvq_fps=50,
-                 dilation_growth_rate=2,
-                 depth_per_res_block=6,
-                 activation='relu',
-                 norm=None,
-                 **kwargs):
+    def __init__(
+        self,
+        input_dim=263,
+        output_dim=16,
+        emb_dim_decoder=(16, 32, 64, 128, 192, 256),
+        input_fps=20,
+        rvq_fps=50,
+        dilation_growth_rate=2,
+        depth_per_res_block=6,
+        activation='relu',
+        norm=None,
+        **kwargs
+    ):
         super().__init__()
 
         self.input_fps = input_fps

@@ -9,8 +9,6 @@ import pandas as pd
 import json
 
 
-# Use mixed llama caption and tag generated captions
-
 class MusicMotionTextDataset(Dataset):
     def __init__(
         self, split, music_meta_dir, motion_meta_dir,

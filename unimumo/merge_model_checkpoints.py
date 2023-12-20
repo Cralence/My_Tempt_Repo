@@ -2,7 +2,6 @@ import os
 import argparse
 import numpy as np
 from omegaconf import OmegaConf
-
 import torch
 
 # merge the checkpoints and configs in the three stages into a unified checkpoint

@@ -1,13 +1,11 @@
-import matplotlib
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.animation import FuncAnimation, PillowWriter
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import mpl_toolkits.mplot3d.axes3d as p3
 import numpy as np
-def plot_3d_motion(save_path, kinematic_tree, joints, title, vbeat, figsize=(10, 10), fps=120, radius=4):
-    #     matplotlib.use('Agg')
 
+
+def plot_3d_motion(save_path, kinematic_tree, joints, title, vbeat, figsize=(10, 10), fps=120, radius=4):
     title_sp = title.split(' ')
     if len(title_sp) > 10:
         title = '\n'.join([' '.join(title_sp[:10]), ' '.join(title_sp[10:])])
@@ -16,12 +14,11 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, vbeat, figsize=(10,
         ax.set_xlim3d([-radius / 2, radius / 2])
         ax.set_ylim3d([0, radius])
         ax.set_zlim3d([0, radius])
-        # print(title)
         fig.suptitle(title, fontsize=20)
         ax.grid(b=False)
 
     def plot_xzPlane(minx, maxx, miny, minz, maxz):
-        ## Plot a plane XZ
+        # Plot a plane XZ
         verts = [
             [minx, miny, minz],
             [minx, miny, maxz],
@@ -32,13 +29,10 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, vbeat, figsize=(10,
         xz_plane.set_facecolor((0.5, 0.5, 0.5, 0.5))
         ax.add_collection3d(xz_plane)
 
-    #         return ax
-
-    # (seq_len, joints_num, 3)
     data = joints.copy().reshape(len(joints), -1, 3)
     fig = plt.figure(figsize=figsize)
     if vbeat is not None:
-        ax = fig.add_subplot(211, projection='3d')#p3.Axes3D(fig)
+        ax = fig.add_subplot(211, projection='3d')
     else:
         ax = p3.Axes3D(fig)
     init()
@@ -48,7 +42,6 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, vbeat, figsize=(10,
               'darkblue', 'darkblue', 'darkblue', 'darkblue', 'darkblue',
               'darkred', 'darkred', 'darkred', 'darkred', 'darkred']
     frame_number = data.shape[0]
-    #     print(data.shape)
 
     height_offset = MINS[1]
     data[:, :, 1] -= height_offset
@@ -57,7 +50,6 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, vbeat, figsize=(10,
     data[..., 0] -= data[:, 0:1, 0]
     data[..., 2] -= data[:, 0:1, 2]
 
-    #     print(trajec.shape)
     if vbeat is not None:
         ax_beat = fig.add_subplot(212)
         line, = ax_beat.plot([], [], lw=2, color='r')
@@ -65,32 +57,27 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, vbeat, figsize=(10,
         ax_beat.set_ylim(-0.1, 1.1)
         xdata = []
         ydata = []
+
     def update(index):
-        #         print(index)
         ax.lines = []
         ax.collections = []
         ax.view_init(elev=120, azim=-90)
         ax.dist = 7.5
-        #         ax =
         plot_xzPlane(MINS[0] - trajec[index, 0], MAXS[0] - trajec[index, 0], 0, MINS[2] - trajec[index, 1],
                      MAXS[2] - trajec[index, 1])
-        #         ax.scatter(data[index, :22, 0], data[index, :22, 1], data[index, :22, 2], color='black', s=3)
 
         if index > 1:
             ax.plot3D(trajec[:index, 0] - trajec[index, 0], np.zeros_like(trajec[:index, 0]),
                       trajec[:index, 1] - trajec[index, 1], linewidth=1.0,
                       color='blue')
-        #             ax = plot_xzPlane(ax, MINS[0], MAXS[0], 0, MINS[2], MAXS[2])
 
         for i, (chain, color) in enumerate(zip(kinematic_tree, colors)):
-            #             print(color)
             if i < 5:
                 linewidth = 4.0
             else:
                 linewidth = 2.0
             ax.plot3D(data[index, chain, 0], data[index, chain, 1], data[index, chain, 2], linewidth=linewidth,
                       color=color)
-        #         print(trajec[:index, 0].shape)
 
         plt.axis('off')
         ax.set_xticklabels([])
@@ -100,9 +87,8 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, vbeat, figsize=(10,
             xdata.append(index)
             ydata.append(vbeat[index])
             ax_beat.plot(xdata, ydata)
-            # ax_beat.plot(vbeat[:index])
 
     ani = FuncAnimation(fig, update, frames=frame_number, interval=1000 / fps, repeat=False)
 
-    ani.save(save_path, fps=fps, writer='ffmpeg')#writer='imagemagick')
+    ani.save(save_path, fps=fps, writer='ffmpeg')
     plt.close()
