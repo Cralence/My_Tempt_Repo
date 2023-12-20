@@ -233,7 +233,9 @@ if __name__ == "__main__":
             print(f'Generated caption: {text}')
 
         waveform_to_visualize = waveform
-        motion_to_visualize = motion
+        motion_to_visualize = model.motion_vec_to_joint(
+            torch.Tensor(model.normalize_motion(motion))
+        )
         print(f'waveform_gen: {waveform_to_visualize.shape}, joint: {motion_to_visualize.shape}, text: {text_description}')
 
     # visualize music and motion
