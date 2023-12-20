@@ -35,6 +35,7 @@ conda activate unimumo
 # install dependencies
 pip install torch==1.13.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116
 pip install -r requirements.txt
+pip install madmom==0.16.1
  ```  
 
 ### 2. Download pretrained weight

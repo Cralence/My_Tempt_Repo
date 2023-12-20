@@ -6,6 +6,7 @@ flashy==0.0.2
 julius==0.2.7
 librosa==0.10.1
 matplotlib==3.3.4
+numpy==1.23.5
 num2words
 omegaconf==2.3.0
 pandas==1.5.3
