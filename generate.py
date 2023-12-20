@@ -34,7 +34,7 @@ if __name__ == "__main__":
         type=str,
         required=False,
         help="The path to music metadata dir",
-        default="/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all",
+        default="data/music",
     )
 
     # about input prompt
