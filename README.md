@@ -90,68 +90,50 @@ python generate.py --ckpt path_to_weight -t text -mu_p path_to_music_condition -
 ## Train the Model
 
 ### 1. Prepare the datasets
+#### 1.1 Music dataset
+Please refer to the website of [Music4All](https://sites.google.com/view/contact4music4all) to download the dataset. 
+After downloaded, put the audio files in folder `data/music/audios`.
+#### 1.2 Motion dataset
+Please download [HumanML3D](https://github.com/EricGuo5513/HumanML3D), [AIST++](https://google.github.io/aistplusplus_dataset/factsfigures.html)
+and [DanceDB](https://dancedb.eu/) according to their instructions. After downloaded, please put the data and metadata 
+into folder `data/motion`. Note that we have provided `Mean.npy` and `Std.npy` for motion features, which is calculated 
+across all three datasets. Don't overwrite it with the mean and std from HumanML3D dataset.
 
 ### 2. Preprocess the data
 
+#### 2.1 Split vocals from music (optional)
+We use [Demucs](https://github.com/facebookresearch/demucs) for splitting music and vocal.
+#### 2.2 Music code extraction and beat detection
+To speed up training, we use [Encodec](https://github.com/facebookresearch/audiocraft/blob/main/docs/ENCODEC.md) to 
+extract all the music codes and use [drum-aware4beat](https://github.com/SunnyCYC/drum-aware4beat) to track 
+the music beat before training. Please set the correct data path in `preprocessing/extract_music_code&beat.py` and run:
+```bash
+python preprocessing/extract_music_code&beat.py --start 0.0 --end 1.0
+```
+Since this process takes a long time, if you have multiple machines, you can split the work by setting `--start` and 
+`--end` to specify the start and end point of each job.
+
 ### 3. Train motion VQ-VAE
+Please first check the settings in `configs/train_motion_vqvae.yaml`, e.g., the paths of datasets, number of device and node.
+Then run:
+```bash
+python train.py --stage train_vqvae --base configs/train_motion_vqvae.yaml
+```
+Recovering training can be achieved by appending `-r path_to_previous_checkpoint` to above command.
 
-### 4. Train music-motion LM
+Reconstruction loss can be slightly reduced by fine-tuning the motion VQ-VAE with `configs/train_motion_vqvae_finetune.yaml`. 
 
-### 5. Train captioning model
+### 4. Pair music with motion and extract motion code
 
-### 6. Integrate the trained weights
+
+### 5. Train music-motion LM
+
+### 6. Train captioning model
+
+### 7. Integrate the trained weights
 
 ## Citation
 
 ## Acknowledgement
 
-## How to Run   
-1. Install dependencies   
-```bash
-# clone project   
-git clone https://github.com/Cralence/SILT.git
-
-# create conda environment
-cd SILT
-conda env create -f environment.yaml
-conda activate silt
-pip install opencv-python
-pip install omegaconf==2.3.0
- ```   
-
-2. Download the additional non-shadow dataset from [here](https://drive.google.com/file/d/1OHDCr0j6qrSYL1iDokY1kjaMcfRPepui/view?usp=drive_link) if needed. Pretrained weights for the backbone encoders
-can be downloaded from the table below. Then, set the correct path and whether to use the additional 
-dataset in `configs/silt_training_config.yaml`. Note that we use the additional dataset only when training on SBU.
-
-3. Train the model by running:
-```bash
-python train.py --dataset SBU --backbone PVT-b5
-```
-
-4. Test the model by running:
-```bash
-python infer.py --dataset SBU --ckpt path_to_weight  
-```
-
-## Dataset
-Our relabeled SBU test set can be downloaded from [here](https://drive.google.com/file/d/1M5YWnOJ2GtR85WJ2uhoLC-0mT2cr-ov4/view?usp=drive_link).
-
-## Pretrained Model
-|      Model      |  Params（M)  |                                                                                 Pretrained Backbone                                                                                 |                                                SBU                                                |                                               ISTD                                                |   UCF    |
-|:---------------:|:-----------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------:|:--------:|
-| EfficientNet-B3 |    12.18    |                                                                                          -                                                                                          |                                               5.23                                                |                                               2.00                                                |   9.18   |
-| EfficientNet-B7 |    67.80    |                                                                                          -                                                                                          |                                               4.62                                                |                                               1.46                                                |   7.97   |
-|   ResNeXt-101   |    90.50    |                                           [weight](https://drive.google.com/file/d/18U2o7msKJexwUzYuoWf4Hp_hxM0sl6IP/view?usp=drive_link)                                           |                                               5.08                                                |                                               1.53                                                |   9.27   |
-|   ConvNeXt-B    |   100.68    |                                                                                          -                                                                                          |                                               5.11                                                |                                               1.15                                                |   8.62   |
-|    PVT v2-B3    |    49.42    |                                           [weight](https://drive.google.com/file/d/1xIsO5uS_Z7G5WsK_qlCCdxI4GA3sYb9Y/view?usp=drive_link)                                           |                                               4.36                                                | **[1.11](https://drive.google.com/file/d/1jT2yySs_ZxG_oyD-D5xkxeyPBc1igqpL/view?usp=drive_link)** |   7.25   |
-|    PVT v2-B5    |    86.14    |                                           [weight](https://drive.google.com/file/d/1fgF8pgXEgDJ2bFFLcNUeJJvMzhdr2oOa/view?usp=drive_link)                                           | **[4.19](https://drive.google.com/file/d/1CvO6xoXdUw72xGFyhHfroi4LjGyEjBKD/view?usp=drive_link)** |                                               1.16                                                | **7.23** |
-
-### Citation   
-```
-@inproceedings{yang2023silt,
-  title={SILT: Shadow-aware Iterative Label Tuning for Learning to Detect Shadows from Noisy Labels},
-  author={Han Yang, Tianyu Wang, Xiaowei Hu, Chi-Wing Fu},
-  booktitle={IEEE International Conference on Computer Vision},
-  year={2023}
-}
-```   
+ 
