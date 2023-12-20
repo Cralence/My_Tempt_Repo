@@ -12,6 +12,8 @@
 This is the official repository of **BlaBlaBla**, a unified music, motion and text generation model. 
 In this repository, we present model and data processing code, as well as the model weights.
 
+![](assets/image/Teaser.png)
+
 ---
 
 ## Brief Introduction

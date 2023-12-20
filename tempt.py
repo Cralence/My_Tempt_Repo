@@ -11,4 +11,4 @@ waveform_gen, motion_gen = model.generate_music_motion(
     text_description=[text_description], batch_size=5
 )
 
-visualize_music_motion(waveform_gen, motion_gen['joint'], 'gen_results')
+visualize_music_motion(waveform_gen, motion_gen['joint'], save_dir='gen_results')
