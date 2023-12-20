@@ -1,15 +1,16 @@
 <div align="center">  
 
-# BlaBlaBla: Unified Text, Music and Motion Generation
+# UniMuMo: Unified Text, Music and Motion Generation
 
-<a href='https://www.google.com/'><img src='https://img.shields.io/badge/Demo-Page-blue'></a> 
-[![Paper](http://img.shields.io/badge/paper-arxiv.2308.12064-B31B1B.svg)](https://www.google.com/)
+[//]: # (<a href='https://www.google.com/'><img src='https://img.shields.io/badge/Demo-Page-blue'></a> )
+
+[//]: # ([![Paper]&#40;http://img.shields.io/badge/paper-arxiv.2308.12064-B31B1B.svg&#41;]&#40;https://www.google.com/&#41;)
 
 </div>
 
 ---
 
-This is the official repository of **BlaBlaBla**, a unified music, motion and text generation model. 
+This is the official repository of **UniMuMo**, a unified music, motion and text generation model. 
 In this repository, we present model and data processing code, as well as the model weights.
 
 ![](assets/image/Teaser.png)
