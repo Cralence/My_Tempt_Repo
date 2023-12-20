@@ -23,8 +23,27 @@ with one images
 ## Quick Start
 
 ### 1. Conda environment
+```bash
+# clone project   
+git clone ?
+
+# create conda environment
+cd ?
+conda create -n unimumo python=3.9
+conda activate unimumo
+
+# install dependencies
+pip install torch==1.13.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116
+pip install -r requirements.txt
+ ```  
 
 ### 2. Download pretrained weight
+The weight of UniMuMo consists of three parts: a music VQ-VAE, a motion VQ-VAE and a music-motion LM. 
+For inference, please download the unified weight that includes all three parts from here.
+For data preprocessing or training, only one or two parts of them are required for each stage. 
+So please download the separate weights from here.
+
+After downloaded, please
 
 ### 3. Run the model
 

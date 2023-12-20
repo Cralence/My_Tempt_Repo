@@ -64,3 +64,9 @@ scp -r mc@129.213.146.32:/home/ubuntu/LMCG/LMCGnngn/yanghan/music_motion_diffusi
 
 
 python unimumo/merge_model_checkpoints.py -s ./final_model --music_vqvae /gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin --motion_vqvae_ckpt /gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt --motion_vqvae_config configs/train_motion_vqvae.yaml --mm_lm_ckpt training_logs/2023-12-19T23-33-58_train_lm/checkpoints/last.ckpt --mm_lm_config configs/train_lm.yaml --motion_metadata_dir /gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data
+
+conda create -n unimumo python=3.10
+conda activate unimumo
+
+pip install torch==1.13.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116
+
