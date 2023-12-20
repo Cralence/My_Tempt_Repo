@@ -7,8 +7,8 @@ from os.path import join as pjoin
 import librosa
 import argparse
 
-from unimumo.audio.audiocraft_.models.builders import get_compression_model
-from unimumo.audio.beat_detection.test_beat_detection import get_music_beat, build_beat_tracker
+from ..unimumo.audio.audiocraft_.models.builders import get_compression_model
+from ..unimumo.audio.beat_detection.test_beat_detection import get_music_beat, build_beat_tracker
 
 # extract the music code using Encodec
 # and detect the music beat
