@@ -169,8 +169,12 @@ a single checkpoint that can be directly loaded by `class UniMuMo` by running:
 python unimumo/merge_model_checkpoints.py (provide the paths for all the checkpoints, configs and metadata...)
 ```
 
-## Citation
 
 ## Acknowledgement
+Our code is partially built on the following repositories: [Audiocraft](https://github.com/facebookresearch/audiocraft),
+[Stable Diffusion](https://github.com/CompVis/stable-diffusion), [drum-aware4beat](https://github.com/SunnyCYC/drum-aware4beat)
+and [T2M-GPT](https://github.com/Mael-zys/T2M-GPT).
+
+
 
  
