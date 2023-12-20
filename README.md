@@ -173,7 +173,7 @@ python unimumo/merge_model_checkpoints.py (provide the paths for all the checkpo
 ## Acknowledgement
 Our code is partially built on the following repositories: [Audiocraft](https://github.com/facebookresearch/audiocraft),
 [Stable Diffusion](https://github.com/CompVis/stable-diffusion), [drum-aware4beat](https://github.com/SunnyCYC/drum-aware4beat)
-and [T2M-GPT](https://github.com/Mael-zys/T2M-GPT).
+and [T2M-GPT](https://github.com/Mael-zys/T2M-GPT). Thanks to their great work!
 
 
 
