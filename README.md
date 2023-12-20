@@ -44,9 +44,48 @@ For inference, please download the unified weight that includes all three parts 
 For data preprocessing or training, only one or two parts of them are required for each stage. 
 So please download the separate weights from here.
 
-After downloaded, please
+After downloaded, please put the weights into folder `pretrained`
 
 ### 3. Run the model
+```bash
+python generate.py --help
+  --ckpt                The path to the trained model
+  
+  # about conditioning
+  -mu_p --music_path    The path to the music to be conditioned on
+  -mo_p --motion_path   The path to the motion to be conditioned on
+  -mu_d, --music_description
+                        The conditional description for music
+  -mo_d, --motion_description
+                        The conditional description for motion
+  -t, --generation_target {mu,mo,mumo,text}
+                        The output format to generate, choosing from music (mu), motion (mo), joint music motion (mumo)
+                        and text description (text)
+                        
+  # about generation settings 
+  -gs, --guidance_scale 
+                        Guidance scale (Large => better quality and relavancy to text; Small => better diversity)
+  --temperature         Temperature for generation
+  -d, --duration        Generated music/motion time, default is 10.0
+  --seed                Change this value (any integer number) will lead to a different generation result
+  -bs, --batch_size     Number of samples to generate for each prompt each time
+  --music_meta_dir      The path to music metadata, for loading optional text prompts, default is ./data/music
+  -s --save_path        The folder path to save model output
+```
+Conditions and generation target and be set arbitrarily, for example:
+```bash
+# generate music and motion without specific conditions
+python generate.py --ckpt path_to_weight -t mumo
+
+# generate music and motion with music text description
+python generate.py --ckpt path_to_weight -t mumo -mu_d descriptions_for_music
+
+# generate music conditioned on motion and text
+python generate.py --ckpt path_to_weight -t mu -mu_d descriptions_for_music -mo_p path_to_motion_condition
+
+# generate music and motion captions
+python generate.py --ckpt path_to_weight -t text -mu_p path_to_music_condition -mo_p path_to_motion_condition
+```
 
 ## Train the Model
 
