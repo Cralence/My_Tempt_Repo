@@ -152,7 +152,6 @@ if __name__ == "__main__":
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = model.to(device)
     model.music_motion_lm = model.music_motion_lm.to(device)
-    print('!!!!!!!!!!!!!!!!!!!!!!', model.music_motion_lm.device)
 
     if generation_target == 'mumo':
         waveform_gen, motion_gen = model.generate_music_motion(
