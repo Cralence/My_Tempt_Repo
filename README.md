@@ -45,9 +45,9 @@ pip install madmom==0.16.1
 
 ### 2. Download pretrained weight
 The weight of UniMuMo consists of three parts: a music VQ-VAE, a motion VQ-VAE and a music-motion LM. 
-For inference, please download the unified weight that includes all three parts from here.
+For inference, please download the unified weight that includes all three parts from [here](https://drive.google.com/uc?id=1_EWxTWWj1CHtac-Acm1hoJ_DvbzVNHrJ).
 For data preprocessing or training, only one or two parts of them are required for each stage. 
-So please download the separate weights from here.
+So please download the separate weights from [here](https://drive.google.com/uc?id=1mNgBLP2fMSbL8aTBx5Oj_E8OlSgfYObV).
 
 After downloaded, please put the weights into folder `pretrained`
 
