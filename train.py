@@ -344,22 +344,10 @@ if __name__ == "__main__":
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
 
-        # set the batch size for corresponding training stage
-        if opt.stage == "train_music_motion":
-            config.data.params.batch_size = config.data.params.batch_size_music_motion
-        elif opt.stage == "train_cation":
-            config.data.params.batch_size = config.data.params.batch_size_caption
-        # set training stage and relevant parameters for the model
+        # set training stage and checkpoint of music motion lm
         if opt.stage != "train_vqvae":
             config.model.params.stage = opt.stage
             config.model.params.mm_ckpt = opt.mm_ckpt
-
-            del config.data.params.batch_size_music_motion
-            del config.data.params.batch_size_caption
-        # set using full llama-generated captions if training captioning
-        if opt.stage == "train_caption":
-            config.data.params.train.params.llama_caption_ratio = 1.0
-            config.data.params.validation.params.llama_caption_ratio = 1.0
 
         # model
         model = instantiate_from_config(config.model)
