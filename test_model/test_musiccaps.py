@@ -1,10 +1,8 @@
-from omegaconf import OmegaConf
 import argparse
 import os
 import torch
 from os.path import join as pjoin
 import soundfile as sf
-import numpy as np
 import pandas as pd
 import subprocess
 import random
@@ -19,10 +17,9 @@ parent_dir = current_dir.parent
 # Add the parent directory to sys.path
 sys.path.append(str(parent_dir))
 
-from unimumo.util import load_model_from_config
-from unimumo.audio.audiocraft_.models.builders import get_compression_model
-from unimumo.motion.motion_process import motion_vec_to_joint
 from unimumo.motion import skel_animation
+from unimumo.motion.utils import kinematic_chain
+from unimumo.models import UniMuMo
 
 
 if __name__ == "__main__":
@@ -38,18 +35,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--music_dir",
+        "--musiccaps_dir",
         type=str,
         required=False,
-        help="The path to music data dir",
-        default="/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/audios"
-    )
-
-    parser.add_argument(
-        "--meta_dir",
-        type=str,
-        required=False,
-        help="The path to meta data dir",
+        help="The path to the directory containing musiccaps prompts",
         default="/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all",
     )
 
@@ -96,46 +85,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--base",
-        type=str,
-        required=False,
-        default=None,
-        help="yaml dir",
-    )
-
-    parser.add_argument(
-        "--vqvae",
-        type=str,
-        required=False,
-        default='/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin',
-        help="load checkpoint of pretrained vqvae",
-    )
-
-    parser.add_argument(
-        "--motion_vqvae_ckpt",
-        type=str,
-        required=False,
-        default='/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt',
-        help="load checkpoint of pretrained motion vqvae",
-    )
-
-    parser.add_argument(
-        "--motion_vqvae_config",
-        type=str,
-        required=False,
-        default='/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_motion_diffusion/configs/mm_vqvae_v6.yaml',
-        help="load checkpoint of pretrained motion vqvae config",
-    )
-
-    parser.add_argument(
-        "--recover",
-        type=int,
-        required=False,
-        default=0,
-        help="recover from index",
-    )
-
-    parser.add_argument(
         "--start",
         type=float,
         required=False,
@@ -174,15 +123,13 @@ if __name__ == "__main__":
     music_save_path = pjoin(save_path, 'music')
     motion_save_path = pjoin(save_path, 'motion')
     video_save_path = pjoin(save_path, 'video')
+    os.makedirs(save_path, exist_ok=True)
+    os.makedirs(music_save_path, exist_ok=True)
+    os.makedirs(motion_save_path, exist_ok=True)
+    os.makedirs(video_save_path, exist_ok=True)
     guidance_scale = args.guidance_scale
-    music_dir = args.music_dir
     motion_dir = args.motion_dir
     duration = args.duration
-
-    motion_mean = np.load(pjoin(motion_dir, 'Mean.npy'))
-    motion_std = np.load(pjoin(motion_dir, 'Std.npy'))
-    kinematic_chain = [[0, 2, 5, 8, 11], [0, 1, 4, 7, 10], [0, 3, 6, 9, 12, 15], [9, 14, 17, 19, 21],
-                       [9, 13, 16, 18, 20]]
 
     # load random motion descriptions
     humanml3d_text_dir = pjoin(motion_dir, 'humanml3d_text_description')
@@ -201,39 +148,18 @@ if __name__ == "__main__":
 
     aist_genres = ['break', 'pop', 'lock', 'middle hip-hop', 'house', 'waack', 'krump', 'street jazz', 'ballet jazz']
 
-
-    assert os.path.exists(args.meta_dir)
-    music_cap_df = pd.read_csv(pjoin(args.meta_dir, 'musiccaps-public.csv'))
+    # load musiccaps text prompt
+    assert os.path.exists(args.musiccaps_dir)
+    music_cap_df = pd.read_csv(pjoin(args.musiccaps_dir, 'musiccaps-public.csv'))
     text_prompt_list = list(music_cap_df['caption'])
     music_id_list = list(music_cap_df['ytid'])
-    text_prompt_list = [s + ' The genre of the dance is la style hip-hop.' for s in text_prompt_list]
 
     print('number of testing data:', len(text_prompt_list))
-    os.makedirs(save_path, exist_ok=True)
-    os.makedirs(music_save_path, exist_ok=True)
-    os.makedirs(motion_save_path, exist_ok=True)
-    os.makedirs(video_save_path, exist_ok=True)
 
-    pkg = torch.load(args.vqvae, map_location='cpu')
-    cfg = OmegaConf.create(pkg['xp.cfg'])
-    music_vqvae = get_compression_model(cfg)
-    music_vqvae.load_state_dict(pkg['best_state'])
-    music_vqvae.eval()
+    # load model
+    model = UniMuMo.from_checkpoint(args.ckpt)
 
-    motion_vqvae_configs = OmegaConf.load(args.motion_vqvae_config)
-    motion_vqvae = instantiate_from_config(motion_vqvae_configs.model)
-    pl_sd = torch.load(args.motion_vqvae_ckpt, map_location='cpu')
-    motion_vqvae.load_state_dict(pl_sd['state_dict'])
-    motion_vqvae.eval()
-
-    config = OmegaConf.load(args.base)
-    model = load_model_from_config(config, args.ckpt)
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
-    music_vqvae = music_vqvae.to(device)
-    motion_vqvae = motion_vqvae.to(device)
-
-    count = max(args.recover - args.batch_size - 5, 0)
+    count = 0
     total_num = len(text_prompt_list)
     start_idx = int(args.start * total_num)
     end_idx = int(args.end * total_num)
@@ -274,22 +200,11 @@ if __name__ == "__main__":
             print(len(p.split(' ')), p)
 
         with torch.no_grad():
-            batch = {
-                'text': text_prompt,
-                'music_code': None,
-                'motion_code': None
-            }
-
-            music_gen, motion_gen, _, _, _ = model.generate_sample(
-                batch,
+            waveform_gen, motion_gen = model.generate_music_motion(
+                text_description=text_prompt,
                 duration=duration,
-                conditional_guidance_scale=args.guidance_scale
+                conditional_guidance_scale=guidance_scale
             )
-
-            waveform_gen = music_vqvae.decode(music_gen)
-            waveform_gen = waveform_gen.cpu().squeeze()
-            motion_gen = motion_vqvae.decode_from_code(music_gen, motion_gen)
-            joint_gen = motion_vec_to_joint(motion_gen, motion_mean, motion_std)
 
             os.makedirs(save_path, exist_ok=True)
 
@@ -306,7 +221,7 @@ if __name__ == "__main__":
                 motion_path = pjoin(motion_save_path, motion_filename)
                 try:
                     skel_animation.plot_3d_motion(
-                        motion_path, kinematic_chain, joint_gen[batch_idx], title='None', vbeat=None,
+                        motion_path, kinematic_chain, motion_gen['joint'][batch_idx], title='None', vbeat=None,
                         fps=20, radius=4
                     )
                 except:
@@ -316,9 +231,7 @@ if __name__ == "__main__":
                 video_filename = "%s.mp4" % music_id[batch_idx]
                 video_path = pjoin(video_save_path, video_filename)
                 try:
-                    subprocess.call(
-                        f"ffmpeg -i {motion_path} -i {music_path} -c copy {video_path}",
-                        shell=True)
+                    subprocess.call(f"ffmpeg -i {motion_path} -i {music_path} -c copy {video_path}", shell=True)
                 except:
                     print(f'{video_path} cannot be saved.')
                     continue

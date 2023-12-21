@@ -42,9 +42,17 @@ class UniMuMo(nn.Module):
         self.motion_std = motion_std
 
     @staticmethod
-    def from_checkpoint(ckpt: str) -> 'UniMuMo':
+    def from_checkpoint(ckpt: str, device: tp.Optional[str] = None) -> 'UniMuMo':
         model_ckpt = torch.load(ckpt, map_location='cpu')
-        return UniMuMo(**model_ckpt)
+        model = UniMuMo(**model_ckpt)
+
+        if device is None:
+            device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        model = model.to(device)
+        model.music_motion_lm = model.music_motion_lm.to(device)
+        print(f'Load model to device {device}')
+
+        return model
 
     @torch.no_grad()
     def decode_music_motion(

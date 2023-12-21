@@ -155,9 +155,6 @@ if __name__ == "__main__":
 
     # load model
     model = UniMuMo.from_checkpoint(model_ckpt)
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = model.to(device)
-    model.music_motion_lm = model.music_motion_lm.to(device)
 
     if generation_target == 'mumo':
         waveform_gen, motion_gen = model.generate_music_motion(
