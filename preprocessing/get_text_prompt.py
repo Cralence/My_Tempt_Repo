@@ -5,11 +5,11 @@ import json
 import pandas as pd
 import random
 
-OPENAI_API_KEY = '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'
+OPENAI_API_KEY = 'keys'
 dropout_prob = 0.3
 metadata_path = 'text_prompt.csv'
 save_path = 'result.json'
-n_prompt_per_audio = 5
+n_prompt_per_audio = 2
 
 client = OpenAI(
     api_key=OPENAI_API_KEY
@@ -20,6 +20,7 @@ text_df = pd.read_csv(metadata_path, index_col=0)
 
 music_id_list = list(text_df.index)
 
+generated_caption = {}
 if os.path.exists(save_path):
     with open(save_path, 'r') as file:
         generated_caption = json.load(file)
