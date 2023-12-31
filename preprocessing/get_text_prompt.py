@@ -5,11 +5,12 @@ import json
 import pandas as pd
 import random
 
-OPENAI_API_KEY = 'keys'
+OPENAI_API_KEY = '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'
 dropout_prob = 0.3
 metadata_path = 'text_prompt.csv'
 save_path = 'result.json'
 n_prompt_per_audio = 2
+batch_size = 5
 
 client = OpenAI(
     api_key=OPENAI_API_KEY
@@ -27,9 +28,9 @@ if os.path.exists(save_path):
     generated_id_list = generated_caption.keys()
     music_id_list = [k for k in music_id_list if k not in generated_id_list]
 
+id_batch = []
+raw_prompt_batch = []
 for id_idx, music_id in enumerate(music_id_list):
-    generated_prompt_list = []
-
     tag_list = text_df.loc[music_id, 'tags']
     if pd.isna(tag_list):
         tag_list = ['nan value']
@@ -68,7 +69,7 @@ for id_idx, music_id in enumerate(music_id_list):
             energy_description = random.choice(
                 ['soft', 'calm', 'peaceful', 'serene', 'gentle', 'light', 'tranquil', 'mild', 'mellow'])
         elif 0.4 <= energy < 0.7:
-            energy_description = random.choice(['moderate', 'comfortable', 'balanced', 'relaxing'])
+            energy_description = random.choice(['moderate', 'comfortable', 'relaxing'])
         elif 0.7 <= energy < 0.95:
             energy_description = random.choice(
                 ['intense', 'powerful', 'strong', 'vigorous', 'fierce', 'potent', 'energetic'])
@@ -130,22 +131,46 @@ for id_idx, music_id in enumerate(music_id_list):
         random.shuffle(text_prompt)
         music_text_prompt = ', '.join(text_prompt) + '.'
 
-        try:
-            completion = client.chat.completions.create(
-              model=model,
-              messages=[
-                {"role": "system", "content": "You are an expert in music, skilled in writing music comments and descriptions."},
-                {"role": "user", "content": f"Help me polish the following music description in concise language: {music_text_prompt}"}
-              ]
-            )
+        id_batch.append(music_id)
+        raw_prompt_batch.append(music_text_prompt)
+        if len(id_batch) == batch_size:
+            # use chatgpt to generate polished results
+            content = (f"Here are {batch_size} music descriptions, "
+                       f"please polish them separately into fluent and meaningful sentences with details.\n")
+            for rp in raw_prompt_batch:
+                content += rp + '\n'
+            content += "Please return the polished results in the format of \"1: content...\n2: content...\n...\""
 
-            print(f'{id_idx + 1}/{len(music_id_list)}, {i} prompt: [{music_text_prompt}]\ngenerated: [{completion.choices[0].message.content}]')
-            generated_prompt_list.append(completion.choices[0].message.content)
-        except:
-            with open(save_path, 'w') as file:
-                json.dump(generated_caption, file, indent=4)
+            try:
+                completion = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system",
+                         "content": "You are an expert in music, skilled in writing music comments and descriptions."},
+                        {"role": "user", "content": content}
+                    ]
+                )
 
-    generated_caption[music_id] = generated_prompt_list
+                results = completion.choices[0].message.content
+                results = results.split('\n')
+                results = [s for s in results if len(s.split(' ')) > 5]
+                results = [s.split(': ')[1] for s in results]
+                assert len(results) == len(id_batch)
+                for idx, id_b in enumerate(id_batch):
+                    if id_b in generated_caption.keys():
+                        generated_caption[id_b].append(results[idx])
+                    else:
+                        generated_caption[id_b] = [results[idx]]
+
+                    print(
+                        f'{id_idx + 1}/{len(music_id_list)}, {id_b} prompt: [{raw_prompt_batch[idx]}]\ngenerated: [{results[idx]}]')
+            except:
+                with open(save_path, 'w') as file:
+                    json.dump(generated_caption, file, indent=4)
+
+            id_batch = []
+            raw_prompt_batch = []
+
 
 with open(save_path, 'w') as file:
     json.dump(generated_caption, file, indent=4)
