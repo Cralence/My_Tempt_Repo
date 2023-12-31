@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import random
 
-OPENAI_API_KEY = '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'
+OPENAI_API_KEY = ''
 dropout_prob = 0.3
 metadata_path = 'text_prompt.csv'
 save_path = 'result.json'
@@ -42,6 +42,11 @@ for id_idx, music_id in enumerate(music_id_list):
     tag_list = [t for t in tag_list if 'vocalist' not in t]
 
     for i in range(n_prompt_per_audio):
+        if i != 0 and i % 100 == 0:
+            # save the results at times
+            with open(save_path, 'w') as file:
+                json.dump(generated_caption, file, indent=4)
+
         # choose for tempo descriptor
         tempo = text_df.loc[music_id, 'tempo']
         if tempo < 60:
@@ -164,9 +169,10 @@ for id_idx, music_id in enumerate(music_id_list):
 
                     print(
                         f'{id_idx + 1}/{len(music_id_list)}, {id_b} prompt: [{raw_prompt_batch[idx]}]\ngenerated: [{results[idx]}]')
-            except:
+            except Exception as e:
                 with open(save_path, 'w') as file:
                     json.dump(generated_caption, file, indent=4)
+                print(e)
 
             id_batch = []
             raw_prompt_batch = []
