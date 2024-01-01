@@ -29,19 +29,19 @@ from unimumo.util import load_model_from_config
 
 def main(args):
     # data paths and save paths
-    music_dir = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/spotify_music/audios'
-    music_metadata_dir = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/spotify_music/'
-    motion_dir = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
-    feature_dir = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/spotify_music/spotify_music_beat'
-    motion_feature_save_dir = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data/aligned_motion_code_spotify'
+    music_dir = 'data/music/audios'
+    music_metadata_dir = 'data/music'
+    motion_dir = 'data/motion'
+    feature_dir = 'data/music/music4all_beat'
+    motion_feature_save_dir = 'data/motion/aligned_motion_code_music4all_60'
     # model paths
-    ckpt = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt'
-    yaml_dir = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_motion_diffusion/configs/mm_vqvae_v6.yaml'
+    ckpt = 'pretrained/motion_vqvae.ckpt'
+    yaml_dir = 'configs/train_motion_vqvae.yaml'
 
     # set how many motion is paired for each music
     num_pair_each_music = 5
     # non-humanml3d data repeat time: determine the ratio of humanml3d and other data
-    repeat_time = 30
+    repeat_time = 60
 
     os.makedirs(motion_feature_save_dir, exist_ok=True)
     seed_everything(2023)
@@ -96,7 +96,7 @@ def main(args):
     # load music data
     music_data = []
     for split in ['train', 'test', 'val']:
-        with cs.open(pjoin(music_metadata_dir, f'spotify_{split}.txt'), "r") as f:
+        with cs.open(pjoin(music_metadata_dir, f'music4all_{split}.txt'), "r") as f:
             for line in f.readlines():
                 if not os.path.exists(pjoin(music_dir, line.strip() + '.mp3')):
                     continue
