@@ -98,6 +98,7 @@ def main(args):
     for split in ['train', 'test', 'val']:
         with cs.open(pjoin(music_metadata_dir, f'music4all_{split}.txt'), "r") as f:
             for line in f.readlines():
+                print(pjoin(music_dir, line.strip() + '.mp3'), pjoin(feature_dir, line.strip() + '.pth'))
                 if not os.path.exists(pjoin(music_dir, line.strip() + '.mp3')):
                     continue
                 if os.path.exists(pjoin(feature_dir, line.strip() + '.pth')):
