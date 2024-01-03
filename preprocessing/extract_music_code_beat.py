@@ -92,6 +92,7 @@ def main(args):
                 print('%s.pth exists' % music_id)
                 continue
 
+            print(f'{pjoin(data_dir, music_id)}', '!!!!!!!!!!!!')
             if os.path.exists(pjoin(data_dir, f'{music_id}.mp3')):
                 music_path = pjoin(data_dir, f'{music_id}.mp3')
             elif os.path.exists(pjoin(data_dir, f'{music_id}.wav')):
@@ -99,7 +100,6 @@ def main(args):
             else:
                 ValueError()
 
-            print(music_path, '!!!!!!!!!!!!!1')
             beat, bpm = get_music_beat(
                 music_pth=music_path,
                 rnn=beat_detection_model,
