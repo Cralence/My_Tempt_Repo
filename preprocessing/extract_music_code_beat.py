@@ -90,7 +90,6 @@ def main(args):
                 print('%s.pth exists' % music_id)
                 continue
 
-            print(f'{music_id}, {code_save_path}, {beat_save_path}', '!!!!!!!!!!!!')
             if os.path.exists(pjoin(data_dir, f'{music_id}.mp3')):
                 music_path = pjoin(data_dir, f'{music_id}.mp3')
             elif os.path.exists(pjoin(data_dir, f'{music_id}.wav')):
