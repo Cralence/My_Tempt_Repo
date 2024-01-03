@@ -68,7 +68,6 @@ def main(args):
         with cs.open(pjoin(meta_dir, f'music4all_{split}.txt'), 'r') as f:
             for line in f.readlines():
                 music_data.append(line.strip())
-    print('!!!', music_data[:10])
 
     # prepare for save dir
     code_dir = pjoin(save_dir, code_dir_name)
@@ -82,12 +81,9 @@ def main(args):
     end_idx = int(args.end * len(music_data))
     music_data = music_data[start_idx:end_idx]
 
-    print('???', music_data[:10])
-
     with torch.no_grad():
         # traverse the data
         for i, music_id in enumerate(music_data):
-            music_id = '.'.join(music_id.split('.')[:-1])
             code_save_path = pjoin(code_dir, music_id + '.pth')
             beat_save_path = pjoin(beat_dir, music_id + '.pth')
             if os.path.exists(code_save_path) and os.path.exists(beat_save_path):
