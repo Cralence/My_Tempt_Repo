@@ -40,9 +40,11 @@ for id_idx, music_id in enumerate(music_id_list):
         tag_is_empty = False
 
     tag_list = [t for t in tag_list if 'vocalist' not in t]
+    if len(tag_list) == 0:
+        continue
 
     for i in range(n_prompt_per_audio):
-        if i != 0 and i % 100 == 0:
+        if i != 0 and i % 20 == 0:
             # save the results at times
             with open(save_path, 'w') as file:
                 json.dump(generated_caption, file, indent=4)
