@@ -99,6 +99,7 @@ def main(args):
             else:
                 ValueError()
 
+            print(music_path, '!!!!!!!!!!!!!1')
             beat, bpm = get_music_beat(
                 music_pth=music_path,
                 rnn=beat_detection_model,
