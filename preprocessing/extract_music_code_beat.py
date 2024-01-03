@@ -67,6 +67,7 @@ def main(args):
     for split in ['train', 'test', 'val']:
         with cs.open(pjoin(meta_dir, f'music4all_{split}.txt'), 'r') as f:
             for line in f.readlines():
+                print(f'???, {line.strip()}')
                 music_data.append(line.strip())
 
     # prepare for save dir
@@ -81,7 +82,6 @@ def main(args):
     end_idx = int(args.end * len(music_data))
     music_data = music_data[start_idx:end_idx]
 
-    print(f'total num: {len(music_data)}, start: {start_idx}, end: {end_idx}')
     with torch.no_grad():
         # traverse the data
         for i, music_id in enumerate(music_data):
