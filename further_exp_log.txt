@@ -1,2 +1,11 @@
+TODO:
+1, Test most motion data are from aist
+2, Test new text description
+3, Test original music4all with vocals
+
+
+
+
+Doing:
 1, Test AIST motion ratio of 60 (almost all motion are from AIST++)
 train_music_motion_aist_60.yaml

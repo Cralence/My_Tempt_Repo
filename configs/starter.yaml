@@ -95,6 +95,6 @@ lightning:
         disabled: false
   trainer:
     benchmark: True
-    devices: 6
+    devices: 1
     num_nodes: 1
     strategy: ddp
