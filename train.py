@@ -222,9 +222,9 @@ class SetupCallback(Callback):
             trainer.save_checkpoint(ckpt_path)
 
     def on_validation_end(self, trainer, pl_module):
-        if trainer.global_rank == 0:
+        if trainer.global_rank == 0 and trainer.current_epoch % 3 == 0:
             print('Saving checkpoint on validation end')
-            ckpt_path = os.path.join(self.ckptdir, "last.ckpt")
+            ckpt_path = os.path.join(self.ckptdir, f"e_{trainer.current_epoch}.ckpt")
             trainer.save_checkpoint(ckpt_path)
 
     def on_fit_start(self, trainer, pl_module):
