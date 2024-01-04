@@ -1,4 +1,3 @@
-import torch
 import os
 from os.path import join as pjoin
 import numpy as np
@@ -8,6 +7,8 @@ from dtw import *
 from pytorch_lightning import seed_everything
 import soundfile as sf
 import subprocess
+import torch
+from einops import rearrange
 
 import sys
 from pathlib import Path
@@ -54,12 +55,16 @@ motion_fps = 60
 max_motion_length = int(music_duration * motion_fps)
 max_music_length = int(music_duration * 32000)
 
-motion_data = [#'gWA_sBM_cAll_d27_mWA3_ch07',
-    #'gWA_sBM_cAll_d27_mWA3_ch10',
-    'gWA_sFM_cAll_d27_mWA2_ch21',
-    'gWA_sFM_cAll_d27_mWA5_ch20',
-    'gMH_sFM_cAll_d24_mMH1_ch16',
-    'gKR_sBM_cAll_d30_mKR5_ch09']
+# motion_data = ['gWA_sBM_cAll_d27_mWA3_ch07',
+#     'gWA_sBM_cAll_d27_mWA3_ch10',
+#     'gWA_sFM_cAll_d27_mWA2_ch21',
+#     'gWA_sFM_cAll_d27_mWA5_ch20',
+#     'gMH_sFM_cAll_d24_mMH1_ch16',
+#     'gKR_sBM_cAll_d30_mKR5_ch09']
+motion_data = [
+    '002383.npy', '004679.npy', '006986.npy', '009184.npy', '011471.npy', '013753.npy'
+    '002397.npy', '004684.npy', '006992.npy', '009199.npy', '011484.npy', '013757.npy'
+]
 
 music_data = os.listdir(music_dir)
 music_data = [music_id.split('.')[0] for music_id in music_data]
@@ -68,8 +73,18 @@ music_beat_data = [music_id.split('.')[0] for music_id in music_beat_data]
 music_data = list(set(music_data) & set(music_beat_data))
 
 for data_idx, motion_id in enumerate(motion_data):
-    for example_id in range(3):
+    for example_id in range(2):
         motion = np.load(pjoin(motion_dir, 'test', 'joint_vecs', motion_id + '.npy'))
+
+        # interpolate 20 hz humanml3d data to 60 hz
+        motion = torch.Tensor(motion)
+        motion = rearrange(motion, 't d -> d t')
+        print(motion.shape, end='; ')
+        motion = torch.nn.functional.interpolate(motion[None, ...], scale_factor=3, mode='linear')
+        print(motion.shape)
+        motion = rearrange(motion[0], 'd t -> t d')
+        motion = motion.numpy()
+
         motion_length = motion.shape[0]
         # if motion length longer than 10 sec
         aug = max_motion_length // motion_length
