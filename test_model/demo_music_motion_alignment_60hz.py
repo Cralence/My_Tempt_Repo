@@ -62,8 +62,8 @@ max_music_length = int(music_duration * 32000)
 #     'gMH_sFM_cAll_d24_mMH1_ch16',
 #     'gKR_sBM_cAll_d30_mKR5_ch09']
 motion_data = [
-    '002383.npy', '004679.npy', '006986.npy', '009184.npy', '011471.npy', '013753.npy'
-    '002397.npy', '004684.npy', '006992.npy', '009199.npy', '011484.npy', '013757.npy'
+    '002383', '004679', '006986', '009184', '011471', '013753'
+    '002397', '004684', '006992', '009199', '011484', '013757'
 ]
 
 music_data = os.listdir(music_dir)
