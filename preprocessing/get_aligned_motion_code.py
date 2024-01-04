@@ -29,11 +29,11 @@ from unimumo.util import load_model_from_config
 
 def main(args):
     # data paths and save paths
-    music_dir = 'data/music/audios'
+    music_dir = 'data/music/audios_og'
     music_metadata_dir = 'data/music'
     motion_dir = 'data/motion'
-    feature_dir = 'data/music/music4all_beat'
-    motion_feature_save_dir = 'data/motion/aligned_motion_code_music4all_60'
+    feature_dir = 'data/music/music4all_og_beat'
+    motion_feature_save_dir = 'data/motion/aligned_motion_code_music4all_og_30'
     # model paths
     ckpt = 'pretrained/motion_vqvae.ckpt'
     yaml_dir = 'configs/train_motion_vqvae.yaml'
@@ -41,7 +41,7 @@ def main(args):
     # set how many motion is paired for each music
     num_pair_each_music = 5
     # non-humanml3d data repeat time: determine the ratio of humanml3d and other data
-    repeat_time = 60
+    repeat_time = 30
 
     os.makedirs(motion_feature_save_dir, exist_ok=True)
     seed_everything(2023)
@@ -98,7 +98,8 @@ def main(args):
     for split in ['train', 'test', 'val']:
         with cs.open(pjoin(music_metadata_dir, f'music4all_{split}.txt'), "r") as f:
             for line in f.readlines():
-                if not os.path.exists(pjoin(music_dir, line.strip() + '.wav')):
+                if not os.path.exists(pjoin(music_dir, line.strip() + '.wav')) and \
+                   not os.path.exists(pjoin(music_dir, line.strip() + '.mp3')):
                     continue
                 if os.path.exists(pjoin(feature_dir, line.strip() + '.pth')):
                     music_data.append([line.strip(), split])
@@ -124,6 +125,8 @@ def main(args):
         print(f'{data_idx + 1}/{len(music_data)}', end=' ')
 
         music_path = pjoin(music_dir, f'{music_id}.wav')
+        if not os.path.exists(music_path):
+            music_path = pjoin(music_dir, f'{music_id}.mp3')
         waveform, sr = librosa.load(music_path, sr=32000)
         music_duration = 30
         max_motion_length = int(music_duration * 20)
