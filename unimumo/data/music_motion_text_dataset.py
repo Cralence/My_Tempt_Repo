@@ -258,7 +258,13 @@ class MusicMotionTextDataset(Dataset):
         else:
             ValueError()
 
-        text_prompt = music_text_prompt.capitalize() + ' ' + motion_description.capitalize()
+        # text_prompt = music_text_prompt.capitalize() + ' ' + motion_description.capitalize()
+        # Here I change to use tokens to separate them
+        text_prompt = '<music_prompt_start> ' + music_text_prompt.capitalize() + \
+                      ' <music_prompt_end> <motion_prompt_start> ' + \
+                      motion_description.capitalize() + ' <motion_prompt_end>'
+        if idx % 50 == 0:
+            print(text_prompt)
 
         return {
             'motion_code': motion_code,  # (4, 500)
