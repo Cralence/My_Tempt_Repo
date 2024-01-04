@@ -73,7 +73,7 @@ if __name__ == "__main__":
         "--music_vqvae",
         type=str,
         required=False,
-        default='pretrained/musicgen_vqvae.bin',
+        default='pretrained/music_vqvae.bin',
         help="path to meta vqvae",
     )
 
