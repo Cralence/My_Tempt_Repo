@@ -2,6 +2,7 @@ TODO:
 1, Test most motion data are from aist
 2, Test new text description
 3, Test original music4all with vocals
+4, Test 60hz music and motion
 
 
 
