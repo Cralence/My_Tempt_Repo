@@ -1,0 +1,2 @@
+1, Test AIST motion ratio of 60 (almost all motion are from AIST++)
+train_music_motion_aist_60.yaml
