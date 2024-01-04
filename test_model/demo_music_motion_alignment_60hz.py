@@ -54,8 +54,8 @@ motion_fps = 60
 max_motion_length = int(music_duration * motion_fps)
 max_music_length = int(music_duration * 32000)
 
-motion_data = ['gWA_sBM_cAll_d27_mWA3_ch07',
-    'gWA_sBM_cAll_d27_mWA3_ch10',
+motion_data = [#'gWA_sBM_cAll_d27_mWA3_ch07',
+    #'gWA_sBM_cAll_d27_mWA3_ch10',
     'gWA_sFM_cAll_d27_mWA2_ch21',
     'gWA_sFM_cAll_d27_mWA5_ch20',
     'gMH_sFM_cAll_d24_mMH1_ch16',
@@ -68,7 +68,7 @@ music_beat_data = [music_id.split('.')[0] for music_id in music_beat_data]
 music_data = list(set(music_data) & set(music_beat_data))
 
 for data_idx, motion_id in enumerate(motion_data):
-    for example_id in range(10):
+    for example_id in range(3):
         motion = np.load(pjoin(motion_dir, 'test', 'joint_vecs', motion_id + '.npy'))
         motion_length = motion.shape[0]
         # if motion length longer than 10 sec
