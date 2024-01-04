@@ -19,24 +19,21 @@ sys.path.append(str(parent_dir))
 from unimumo.audio.audiocraft_.models.builders import get_compression_model
 from unimumo.audio.beat_detection.test_beat_detection import get_music_beat, build_beat_tracker
 
-# extract the music code using Encodec
-# and detect the music beat
-
 
 def main(args):
-    data_dir = "/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/spotify_music/audios"
-    meta_dir = "/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/spotify_music/"
-    code_dir_name = 'spotify_music_code'
-    beat_dir_name = 'spotify_music_beat'
-    save_dir = "/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/spotify_music/"
-    vqvae_ckpt_path = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
-    beat_tracker_ckpt_path = '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_motion_diffusion/unimumo/audio/beat_detection/pretrained_models/baseline_v1'
+    data_dir = "data/music/audios_og"
+    meta_dir = "data/music"
+    code_dir_name = 'music4all_og_code'
+    beat_dir_name = 'music4all_og_beat'
+    save_dir = "data/music"
+    vqvae_ckpt_path = 'pretrained/music_vqvae.bin'
+    beat_tracker_ckpt_path = 'unimumo/audio/beat_detection/pretrained_models/baseline_v1'
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     beat_tracker_config = {
           'model_type': 'bsl_blstm',
-          'model_dir': '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_motion_diffusion/unimumo/audio/beat_detection/pretrained_models/baseline_v1',
+          'model_dir': 'unimumo/audio/beat_detection/pretrained_models/baseline_v1',
           'model_simpname': 'baseline_v1',
           'num_tempi': 60,
           'transition_lambda': 140,
@@ -67,9 +64,10 @@ def main(args):
 
     # prepare for data
     music_data = []
-    with cs.open(pjoin(meta_dir, 'spotify_all.txt'), "r") as f:
-        for line in f.readlines():
-            music_data.append(line.strip())
+    for split in ['train', 'test', 'val']:
+        with cs.open(pjoin(meta_dir, f'music4all_{split}.txt'), 'r') as f:
+            for line in f.readlines():
+                music_data.append(line.strip())
 
     # prepare for save dir
     code_dir = pjoin(save_dir, code_dir_name)
@@ -83,11 +81,9 @@ def main(args):
     end_idx = int(args.end * len(music_data))
     music_data = music_data[start_idx:end_idx]
 
-    print(f'total num: {len(music_data)}, start: {start_idx}, end: {end_idx}')
     with torch.no_grad():
         # traverse the data
         for i, music_id in enumerate(music_data):
-            music_id = '.'.join(music_id.split('.')[:-1])
             code_save_path = pjoin(code_dir, music_id + '.pth')
             beat_save_path = pjoin(beat_dir, music_id + '.pth')
             if os.path.exists(code_save_path) and os.path.exists(beat_save_path):

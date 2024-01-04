@@ -98,8 +98,7 @@ def main(args):
     for split in ['train', 'test', 'val']:
         with cs.open(pjoin(music_metadata_dir, f'music4all_{split}.txt'), "r") as f:
             for line in f.readlines():
-                print(pjoin(music_dir, line.strip() + '.mp3'), pjoin(feature_dir, line.strip() + '.pth'))
-                if not os.path.exists(pjoin(music_dir, line.strip() + '.mp3')):
+                if not os.path.exists(pjoin(music_dir, line.strip() + '.wav')):
                     continue
                 if os.path.exists(pjoin(feature_dir, line.strip() + '.pth')):
                     music_data.append([line.strip(), split])
@@ -124,7 +123,7 @@ def main(args):
             continue
         print(f'{data_idx + 1}/{len(music_data)}', end=' ')
 
-        music_path = pjoin(music_dir, f'{music_id}.mp3')
+        music_path = pjoin(music_dir, f'{music_id}.wav')
         waveform, sr = librosa.load(music_path, sr=32000)
         music_duration = 30
         max_motion_length = int(music_duration * 20)
