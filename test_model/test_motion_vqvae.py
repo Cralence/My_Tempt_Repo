@@ -135,8 +135,8 @@ if __name__ == "__main__":
         motion_name = motion_data_list[count]
         motion = np.load(pjoin(motion_dir, 'test', 'joint_vecs', motion_name + '.npy'))
 
-        if motion_name in aist:
-            motion = motion[::3]
+        # if motion_name in aist:
+        #     motion = motion[::3]
 
         motion_length = motion.shape[0]
         segment_length = 200
