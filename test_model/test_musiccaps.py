@@ -39,7 +39,7 @@ if __name__ == "__main__":
         type=str,
         required=False,
         help="The path to the directory containing musiccaps prompts",
-        default="/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all",
+        default="data/music",
     )
 
     parser.add_argument(
@@ -47,7 +47,7 @@ if __name__ == "__main__":
         type=str,
         required=False,
         help="The path to motion data dir",
-        default='/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data',
+        default='data/motion',
     )
 
     parser.add_argument(
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         "--guidance_scale",
         type=float,
         required=False,
-        default=2.5,
+        default=3.0,
         help="Guidance scale (Large => better quality and relavancy to text; Small => better diversity)",
     )
 
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         "--aist_prob",
         type=float,
         required=False,
-        default=0.8,
+        default=0.9,
         help="Prob of choosing AIST style motion caption.",
     )
 

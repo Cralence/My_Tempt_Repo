@@ -35,7 +35,7 @@ if __name__ == "__main__":
         "--motion_vqvae_config",
         type=str,
         required=False,
-        default='./configs/train_motion_vqvae.yaml',
+        default='configs/train_motion_vqvae.yaml',
         help="The path of motion vqvae configs",
     )
     parser.add_argument(
@@ -49,14 +49,14 @@ if __name__ == "__main__":
         "--mm_lm_config",
         type=str,
         required=False,
-        default='./configs/train_lm.yaml',
+        default='configs/train_music_motion.yaml',
         help="The path of music motion lm configs",
     )
     parser.add_argument(
         "--motion_metadata_dir",
         type=str,
         required=False,
-        default=None,
+        default='data/motion',
         help="The path of motion mean and motion std",
     )
 
