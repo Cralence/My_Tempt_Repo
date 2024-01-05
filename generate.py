@@ -173,7 +173,7 @@ if __name__ == "__main__":
         motion = np.load(motion_path)
         # by default the motion is from aist, so down sample by 3
         motion = motion[::3]
-        motion = motion[None, ...]
+        motion = motion[None, ...]  # [1, 20 * duration, D]
         # cut motion to generate duration
         motion = motion[:, :int(20 * duration)]
 
