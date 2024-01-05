@@ -26,11 +26,21 @@ if os.path.exists(save_path):
     with open(save_path, 'r') as file:
         generated_caption = json.load(file)
     generated_id_list = generated_caption.keys()
+    # add music id that are not generated with captions
     music_id_list = [k for k in music_id_list if k not in generated_id_list]
+    # add music id that do not have enough captions
+    for music_id in generated_id_list:
+        if len(generated_caption[music_id]) < n_prompt_per_audio:
+            music_id_list.append(music_id)
 
 id_batch = []
 raw_prompt_batch = []
 for id_idx, music_id in enumerate(music_id_list):
+    if id_idx != 0 and id_idx % 20 == 0:
+        # save the results at times
+        with open(save_path, 'w') as file:
+            json.dump(generated_caption, file, indent=4)
+
     tag_list = text_df.loc[music_id, 'tags']
     if pd.isna(tag_list):
         tag_list = ['nan value']
@@ -43,12 +53,12 @@ for id_idx, music_id in enumerate(music_id_list):
     if len(tag_list) == 0:
         continue
 
-    for i in range(n_prompt_per_audio):
-        if i != 0 and i % 20 == 0:
-            # save the results at times
-            with open(save_path, 'w') as file:
-                json.dump(generated_caption, file, indent=4)
-
+    if generated_caption.get(music_id) is None:  # if the id has no generated caption
+        n_repeat = n_prompt_per_audio
+    else:  # if the id already has some generated captions
+        n_repeat = n_prompt_per_audio - len(generated_caption[music_id])
+        n_repeat = max(n_repeat, 0)
+    for i in range(n_repeat):
         # choose for tempo descriptor
         tempo = text_df.loc[music_id, 'tempo']
         if tempo < 60:
