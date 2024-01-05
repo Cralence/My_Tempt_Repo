@@ -186,9 +186,10 @@ if __name__ == "__main__":
                     motion_description = f'The style of the dance is {genre}.'
                 else:
                     motion_description = random.choice(humanml3d_text)
-                music_motion_description = '<music_prompt_start> ' + music_description + \
-                                           ' <music_prompt_end> <motion_prompt_start> ' + \
-                                           motion_description + ' <motion_prompt_end>'
+                # music_motion_description = '<music_prompt_start> ' + music_description + \
+                #                            ' <music_prompt_end> <motion_prompt_start> ' + \
+                #                            motion_description + ' <motion_prompt_end>'
+                music_motion_description = music_description + ' ' + motion_description
                 text_prompt.append(music_motion_description)
                 music_id.append(music_id_full[batch_idx])
 

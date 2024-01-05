@@ -2,7 +2,7 @@ model:
   base_learning_rate: 5e-5
   target: unimumo.models.transformer_model.MusicMotionTransformer
   params:
-    name: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_small.bin'
+    name: 'pretrained/musicgen_small.bin'
     music_key: 'music_code'
     motion_key: 'motion_code'
     text_cond_key: 'text'
@@ -55,10 +55,10 @@ data:
       target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
         split: "train"
-        music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
-        motion_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
-        music_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_codes'
-        motion_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data/aligned_motion_code_enlarged_new'
+        music_meta_dir: 'data/music'
+        motion_meta_dir: 'data/motion'
+        music_code_dir: 'data/music/music4all_codes'
+        motion_code_dir: 'data/motion/aligned_motion_code_music4all_30'
         duration: 10
         dropout_prob: 0.6
         vqvae_sr: 32000
@@ -68,10 +68,10 @@ data:
       target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
         split: "val"
-        music_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all'
-        motion_meta_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
-        music_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music4all/music4all_codes'
-        motion_code_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data/aligned_motion_code_enlarged_new'
+        music_meta_dir: 'data/music'
+        motion_meta_dir: 'data/motion'
+        music_code_dir: 'data/music/music4all_codes'
+        motion_code_dir: 'data/motion/aligned_motion_code_music4all_30'
         duration: 10
         dropout_prob: 0.6
         vqvae_sr: 32000
@@ -82,12 +82,12 @@ lightning:
     video_logger:
       target: unimumo.loggers.MusicMotionLogger
       params:
-        music_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/musicgen_vqvae.bin'
-        motion_vqvae_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/weight/mm_vqvae.ckpt'
-        motion_vqvae_config_path: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/final_version_2/My_Tempt_Repo/configs/train_motion_vqvae.yaml'
-        motion_dir: '/gpfs/u/home/LMCG/LMCGnngn/scratch/yanghan/music_dance/motion_data'
+        music_vqvae_path: 'pretrained/music_vqvae.bin'
+        motion_vqvae_path: 'pretrained/motion_vqvae.ckpt'
+        motion_vqvae_config_path: 'configs/train_motion_vqvae.yaml'
+        motion_dir: 'data/motion'
         epoch_frequency: 10
-        batch_frequency: 2000
+        batch_frequency: 4000
         max_video_per_generation: 4
         duration: 10
         sr: 32000
