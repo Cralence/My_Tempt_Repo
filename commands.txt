@@ -14,6 +14,7 @@ TODO:
 2, maybe remove some of the not moving motions from humanml3d
 3, use new music data, and filter music4all data.
 4, use llm to rewrite text descriptions. Make more text descriptions.
+5, try music description and motion description separated with some explicit token, not just concat.
 
 satori:
 srun --gres=gpu:1 -N 1 --mem=100G --time 4:00:00 -I --pty /bin/bash
