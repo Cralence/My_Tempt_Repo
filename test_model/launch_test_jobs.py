@@ -29,14 +29,15 @@ if __name__ == "__main__":
 
     increment = 1 / num_split
     start_ratio = 0.0
+    job_count = 1
     while start_ratio < 1.0:
         end_ratio = start_ratio + increment
 
         with open('run_test_jobs.sh', 'w') as f:
             f.write('#!/bin/bash\n')
-            f.write('#SBATCH --job-name=single\n' +
-                    '#SBATCH -o output/single_%j.out\n' +
-                    '#SBATCH -e output/single_%j.err\n' +
+            f.write(f'#SBATCH --job-name=test_{job_count}\n' +
+                    f'#SBATCH -o output/test_{job_count}_%j.out\n' +
+                    f'#SBATCH -e output/test_{job_count}_%j.err\n' +
                     '#SBATCH --mem=100G\n' +
                     '#SBATCH --nodes=1\n' +
                     '#SBATCH --ntasks-per-node=1\n' +
@@ -48,8 +49,9 @@ if __name__ == "__main__":
                     'ulimit -s unlimited\n\n')
             f.write('export NODELIST=nodelist.$\n'
                     'srun -l bash -c \'hostname\' |  sort -k 2 -u | awk -vORS=, \'{print $2":4"}\' | sed \'s/,$//\' > $NODELIST\n\n')
-            f.write(f'srun {command} --start {start_ratio} --end {end_ratio}\n')
+            f.write(f'srun {command} --start {start_ratio} --end {end_ratio}\n\n')
 
         os.system('cat run_test_jobs.sh')
         time.sleep(3)
         start_ratio += increment
+        job_count += 1
