@@ -52,6 +52,7 @@ if __name__ == "__main__":
             f.write(f'srun {command} --start {start_ratio} --end {end_ratio}\n\n')
 
         os.system('cat run_test_jobs.sh')
-        time.sleep(3)
+        os.system('sbatch run_test_jobs.sh')
+        time.sleep(10)
         start_ratio += increment
         job_count += 1
