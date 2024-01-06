@@ -8,7 +8,7 @@ import random
 OPENAI_API_KEY = ''
 dropout_prob = 0.3
 metadata_path = 'text_prompt.csv'
-save_path = 'result.json'
+save_path = '../data/music/music4all_gpt_prompt.json'
 n_prompt_per_audio = 2
 batch_size = 5
 
