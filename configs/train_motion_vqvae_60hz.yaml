@@ -30,7 +30,7 @@ model:
 data:
   target: train.DataModuleFromConfig
   params:
-    batch_size: 30
+    batch_size: 8
     wrap: True
     num_workers: 4
     train:
@@ -73,7 +73,7 @@ lightning:
       params:
         motion_dir: 'data/motion'
         epoch_frequency: 10
-        batch_frequency: 2000
+        batch_frequency: 4000
         max_video_per_generation: 4
         max_video_logged: 120
         motion_fps: 60
@@ -82,5 +82,5 @@ lightning:
   trainer:
     benchmark: True
     devices: 6
-    num_nodes: 2
+    num_nodes: 8
     strategy: ddp
