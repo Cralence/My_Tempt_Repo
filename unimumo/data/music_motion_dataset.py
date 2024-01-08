@@ -8,6 +8,7 @@ import random
 import pickle
 import librosa
 import typing as tp
+from einops import rearrange
 
 from unimumo.alignment import visual_beat, interpolation
 from unimumo.motion import motion_process
@@ -18,7 +19,8 @@ class MusicMotionDataset(Dataset):
     def __init__(
         self, split: str, music_dir: str, motion_dir: str, music_meta_dir: str, music_beat_dir: str,
         duration: int = 10, use_humanml3d: bool = False, music_dataset_name: str = 'music4all',
-        traverse_motion: bool = True, align: bool = True, music_ignore_name: tp.Optional[str] = None
+        traverse_motion: bool = True, align: bool = True, music_ignore_name: tp.Optional[str] = None,
+        motion_fps: int = 20, dance_repeat_time: int = 1
     ):
         self.split = split
 
@@ -35,7 +37,8 @@ class MusicMotionDataset(Dataset):
 
         # about motion settings
         self.njoints = 22
-        self.fps = 20
+        self.fps = motion_fps
+        assert motion_fps in [20, 60], f"motion fps can only be 20 or 60, input {motion_fps}"
         self.motion_dim = 263
         self.max_motion_length = duration * self.fps
 
@@ -76,11 +79,10 @@ class MusicMotionDataset(Dataset):
                     continue
                 self.motion_data.append(line.strip())
                 self.dancedb.append(line.strip())
+        print(f'Humanml3d size: {len(self.humanml3d)}, dance size: {len(self.motion_data)}')
 
-        if not use_humanml3d:
-            self.motion_data = self.motion_data * 10
-        else:
-            self.motion_data += self.humanml3d
+        if use_humanml3d:
+            self.motion_data = self.motion_data * dance_repeat_time + self.humanml3d
         # load motion mean, std and length
         self.mean = np.load(pjoin(self.motion_dir, 'Mean.npy'))
         self.std = np.load(pjoin(self.motion_dir, 'Std.npy'))
@@ -124,33 +126,43 @@ class MusicMotionDataset(Dataset):
         # load motion, and cut or repeat to match the target motion length
         motion = np.load(pjoin(self.motion_dir, self.split, 'joint_vecs', motion_name + '.npy'))
         if motion_name in self.humanml3d or motion_name in self.dancedb:
-            motion_length = self.length[motion_name]
+            if self.fps == 60:  # interpolate the 20 fps data to 60 fps
+                motion = torch.Tensor(motion)
+                motion = rearrange(motion, 't d -> d t')
+                motion = torch.nn.functional.interpolate(motion[None, ...], scale_factor=3, mode='linear')
+                motion = rearrange(motion[0], 'd t -> t d').numpy()
+                motion_length = self.length[motion_name] * 3
+            else:
+                motion_length = self.length[motion_name]
 
             aug = self.max_motion_length // motion_length
             if aug < 1:  # if loaded motion is longer than target length, then randomly cut
                 start_idx = random.randint(0, motion_length - self.max_motion_length)
                 motion = motion[start_idx:start_idx+self.max_motion_length]
             elif aug == 1:
-                if self.max_motion_length - motion_length <= 50:  # loaded motion is roughly
+                if self.max_motion_length - motion_length <= 2.5 * self.fps:  # loaded motion is roughly
                     motion = motion                               # the same length as target length
                 else:
                     motion = np.tile(motion, (2, 1))  # repeat motion two times
             else:  # if target length is more than 2 times longer than loaded motion, then repeat motion
                 max_repeat = aug
-                if self.max_motion_length - max_repeat*motion.shape[0] > 50:
+                if self.max_motion_length - max_repeat*motion.shape[0] > 2.5 * self.fps:
                     max_repeat += 1
                 motion = np.tile(motion, (max_repeat, 1))
-        else:  # if motion is from AIST++, down sample it 3 times to 20 fps
-            motion_length = self.length[motion_name] // 3  # 60 fps -> 20 fps
+        else:  # if motion is from AIST++
+            if self.fps == 20:  # down sample 60 fps to 20 fps
+                motion = motion[::3]
+                motion_length = self.length[motion_name] // 3
+            else:
+                motion_length = self.length[motion_name]
 
             if self.max_motion_length // motion_length < 1:  # if loaded motion is longer than target length,
                 start_idx = random.randint(0, motion_length - self.max_motion_length)  # then randomly cut
-                motion = motion[start_idx*3:(start_idx+self.max_motion_length)*3:3]
+                motion = motion[start_idx:start_idx + self.max_motion_length]
             elif self.max_motion_length // motion_length == 1:  # loaded motion is roughly
-                motion = motion[::3]                            # the same length as target length
+                pass                                            # the same length as target length
             else:  # if target length is more than 2 times longer than loaded motion, then repeat motion
                 max_repeat = self.max_motion_length // motion_length + 1
-                motion = motion[::3]
                 motion = np.tile(motion, (max_repeat, 1))
 
         # load music
@@ -169,7 +181,7 @@ class MusicMotionDataset(Dataset):
         mbeat = mbeat - start_idx
 
         if self.align:  # align music and motion using dynamic time wrapping
-            # scale mbeat to 20 fps
+            # scale mbeat to 20 or 60 fps
             scale_ratio = self.vqvae_sr / self.fps
             mbeat = (mbeat / scale_ratio).numpy()
             mbeat = (np.rint(mbeat)).astype(int)
@@ -198,8 +210,8 @@ class MusicMotionDataset(Dataset):
                 alignment = dtw(vbeats, mbeats, keep_internals=True, step_pattern=rabinerJuangStepPattern(6, "d"))
                 wq = warp(alignment, index_reference=False)
                 final_motion = interpolation.interp(motion, wq)
-            except Exception:  # if alignment fails, then just use the original motion
-                print('bad motion', motion.shape)
+            except Exception as e:  # if alignment fails, then just use the original motion
+                print(e)
                 final_motion = motion
         else:
             final_motion = motion
@@ -221,8 +233,10 @@ class MusicMotionDataset(Dataset):
                 zero_pad[:motion.shape[0], :] = motion
                 motion = zero_pad
 
+        print(f'!!!debug, {motion.shape}, {waveform.shape}')
+
         return {
-            'motion': motion,  # [20 x T, 263]
+            'motion': motion,  # [fps x T, 263]
             'waveform': waveform,  # [1, 32000 x T]
         }
 

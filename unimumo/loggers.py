@@ -338,8 +338,8 @@ class MotionVQVAELogger(Callback):
             os.makedirs(os.path.split(music_path)[0], exist_ok=True)
             try:
                 sf.write(music_path, music[i].reshape(-1, 1), 32000)
-            except Exception:
-                print(f"Cannot save {music_path}")
+            except Exception as e:
+                print(e)
                 continue
 
             motion_filename = "gs-{:06}_e-{:06}_b-{:06}_motion_{}.mp4".format(global_step, current_epoch, batch_idx, i)
@@ -350,8 +350,8 @@ class MotionVQVAELogger(Callback):
                     motion_path, kinematic_chain, motion[i], title="None", vbeat=None,
                     fps=self.motion_fps, radius=4
                 )
-            except Exception:
-                print(f"Cannot save {motion_path}")
+            except Exception as e:
+                print(e)
                 continue
             video_filename = "gs-{:06}_e-{:06}_b-{:06}_video_{}.mp4".format(global_step, current_epoch, batch_idx, i)
             video_path = os.path.join(root, video_filename)
@@ -366,8 +366,8 @@ class MotionVQVAELogger(Callback):
                     gt_motion_path, kinematic_chain, gt_motion[i], title="None", vbeat=None,
                     fps=self.motion_fps, radius=4
                 )
-            except Exception:
-                print(f"Cannot save {gt_motion_path}")
+            except Exception as e:
+                print(e)
                 continue
             gt_video_filename = "gs-{:06}_e-{:06}_b-{:06}_video_{}_gt.mp4".format(global_step, current_epoch, batch_idx, i)
             gt_video_path = os.path.join(root, gt_video_filename)
