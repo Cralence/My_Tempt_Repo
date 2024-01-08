@@ -233,8 +233,6 @@ class MusicMotionDataset(Dataset):
                 zero_pad[:motion.shape[0], :] = motion
                 motion = zero_pad
 
-        print(f'!!!debug, {motion.shape}, {waveform.shape}')
-
         return {
             'motion': motion,  # [fps x T, 263]
             'waveform': waveform,  # [1, 32000 x T]
