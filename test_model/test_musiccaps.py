@@ -112,7 +112,7 @@ if __name__ == "__main__":
         "--aist_prob",
         type=float,
         required=False,
-        default=0.9,
+        default=0.8,
         help="Prob of choosing AIST style motion caption.",
     )
 

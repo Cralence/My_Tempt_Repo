@@ -9,6 +9,9 @@ Current:
     e18, gs 3: 'frechet_distance': 52.4132, 'frechet_audio_distance': 8.2601
     e24, gs 3: 'frechet_distance': 45.4201, 'frechet_audio_distance': 7.4694
     e30, gs 3: 'frechet_distance': 46.2595, 'frechet_audio_distance': 7.0925
+    e30, gs 3.5: 'frechet_distance': 46.0756, 'frechet_audio_distance': 6.9515
+    e30, gs 4: 'frechet_distance': 45.4169, 'frechet_audio_distance': 6.8342
+    e36, gs 3: 'frechet_distance': 49.4994, 'frechet_audio_distance': 7.7651
 
 
 
@@ -25,4 +28,4 @@ Doing:
 1, Test AIST motion ratio of 60 (almost all motion are from AIST++)
 train_music_motion_aist_60.yaml
 
-musiccap gs=3: 'frechet_distance': 47.0848, 'frechet_audio_distance': 8.3029  But subject to change.. The code may still have some problem...
+musiccap e23, gs 3: 'frechet_distance': 47.0848, 'frechet_audio_distance': 8.3029  But subject to change.. The code may still have some problem...
