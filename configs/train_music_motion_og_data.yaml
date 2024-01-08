@@ -54,7 +54,7 @@ data:
     train:
       target: unimumo.data.music_motion_text_dataset.MusicMotionTextDataset
       params:
-        split: "val"
+        split: "train"
         music_meta_dir: 'data/music'
         motion_meta_dir: 'data/motion'
         music_code_dir: 'data/music/music4all_og_code'
@@ -95,6 +95,6 @@ lightning:
         disabled: false
   trainer:
     benchmark: True
-    devices: 1
-    num_nodes: 1
+    devices: 6
+    num_nodes: 8
     strategy: ddp

@@ -1,3 +1,17 @@
+Current:
+1, use original test code and mm_transformer_v15/epoch=000025.ckpt: 'frechet_distance': 47.8947, 'frechet_audio_distance': 6.2233: audio quality is very poor...
+                                                /epoch=000030.ckpt: 'frechet_distance': 54.85, 'frechet_audio_distance': 6.4701: also sounds poor
+
+2, current best model gs 3: 'frechet_distance': 44.0982, 'frechet_audio_distance': 7.362
+                      gs 2.5: 'frechet_distance': 44.4996, 'frechet_audio_distance': 7.5508
+                      gs 2: 'frechet_distance': 44.9908, 'frechet_audio_distance': 7.7725
+3, train from scratch using the current settings:
+    e18, gs 3: 'frechet_distance': 52.4132, 'frechet_audio_distance': 8.2601
+    e24, gs 3: 'frechet_distance': 45.4201, 'frechet_audio_distance': 7.4694
+    e30, gs 3: 'frechet_distance': 46.2595, 'frechet_audio_distance': 7.0925
+
+
+
 TODO:
 1, Test most motion data are from aist
 2, Test new text description
@@ -10,3 +24,5 @@ TODO:
 Doing:
 1, Test AIST motion ratio of 60 (almost all motion are from AIST++)
 train_music_motion_aist_60.yaml
+
+musiccap gs=3: 'frechet_distance': 47.0848, 'frechet_audio_distance': 8.3029  But subject to change.. The code may still have some problem...
