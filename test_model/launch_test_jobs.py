@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     print(f'Running command [{command}] for {num_split} splits')
 
-    increment = round(1 / num_split, 2)
+    increment = 1 / num_split
     start_ratio = 0.0
     job_count = 1
     while start_ratio < 1.0 - 1e-3:
