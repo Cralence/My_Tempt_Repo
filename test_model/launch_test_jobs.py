@@ -49,7 +49,7 @@ if __name__ == "__main__":
                     'ulimit -s unlimited\n\n')
             f.write('export NODELIST=nodelist.$\n'
                     'srun -l bash -c \'hostname\' |  sort -k 2 -u | awk -vORS=, \'{print $2":4"}\' | sed \'s/,$//\' > $NODELIST\n\n')
-            f.write(f'srun {command} --start {start_ratio} --end {end_ratio}\n\n')
+            f.write(f'srun {command} ' + '--start %.3f --end %.3f' % (start_ratio, end_ratio))
 
         os.system('cat run_test_jobs.sh')
         os.system('sbatch run_test_jobs.sh')
