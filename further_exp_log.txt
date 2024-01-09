@@ -11,6 +11,7 @@ Current:
     e30, gs 3: 'frechet_distance': 46.2595, 'frechet_audio_distance': 7.0925
     e30, gs 3.5: 'frechet_distance': 46.0756, 'frechet_audio_distance': 6.9515
     e30, gs 4: 'frechet_distance': 45.4169, 'frechet_audio_distance': 6.8342
+    e30, gs 5: 'frechet_distance': 44.9675, 'frechet_audio_distance': 6.6418
     e36, gs 3: 'frechet_distance': 49.4994, 'frechet_audio_distance': 7.7651
 
 
@@ -29,3 +30,8 @@ Doing:
 train_music_motion_aist_60.yaml
 
 musiccap e23, gs 3: 'frechet_distance': 47.0848, 'frechet_audio_distance': 8.3029  But subject to change.. The code may still have some problem...
+
+
+2, Train model on music4all with vocals
+e30, gs 4: 'frechet_distance': 40.0841, 'frechet_audio_distance': 5.5669
+
