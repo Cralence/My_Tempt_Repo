@@ -30,7 +30,7 @@ if __name__ == "__main__":
     increment = round(1 / num_split, 2)
     start_ratio = 0.0
     job_count = 1
-    while start_ratio < 1.0:
+    while start_ratio < 1.0 - 1e-3:
         end_ratio = start_ratio + increment
 
         with open('run_test_jobs.sh', 'w') as f:
@@ -49,7 +49,7 @@ if __name__ == "__main__":
                     'ulimit -s unlimited\n\n')
             f.write('export NODELIST=nodelist.$\n'
                     'srun -l bash -c \'hostname\' |  sort -k 2 -u | awk -vORS=, \'{print $2":4"}\' | sed \'s/,$//\' > $NODELIST\n\n')
-            f.write(f'srun {command} ' + '--start %.3f --end %.3f' % (start_ratio, end_ratio))
+            f.write(f'srun {command} ' + '--start %.3f --end %.3f\n\n' % (start_ratio, end_ratio))
 
         os.system('cat run_test_jobs.sh')
         os.system('sbatch run_test_jobs.sh')
