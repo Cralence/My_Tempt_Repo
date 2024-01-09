@@ -21,14 +21,14 @@ if __name__ == "__main__":
         "--music_vqvae",
         type=str,
         required=False,
-        default=None,
+        default='pretrained/music_vqvae.bin',
         help="The path of pretrained Encodec",
     )
     parser.add_argument(
         "--motion_vqvae_ckpt",
         type=str,
         required=False,
-        default=None,
+        default='pretrained/motion_vqvae.ckpt',
         help="The path of pretrained motion vqvae",
     )
     parser.add_argument(
