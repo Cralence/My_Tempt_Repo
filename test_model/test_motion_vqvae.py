@@ -9,6 +9,7 @@ import codecs as cs
 import librosa
 import soundfile as sf
 from pytorch_lightning import seed_everything
+from einops import rearrange
 
 import sys
 from pathlib import Path
@@ -61,7 +62,6 @@ if __name__ == "__main__":
         help="load checkpoint",
     )
 
-
     parser.add_argument(
         "--base",
         type=str,
@@ -77,11 +77,21 @@ if __name__ == "__main__":
         help="path to meta vqvae",
     )
 
+    parser.add_argument(
+        "--fps",
+        type=int,
+        required=False,
+        default=20,
+        choices=[20, 60],
+        help="fps to load motion data",
+    )
+
     args = parser.parse_args()
     os.makedirs(args.save_dir, exist_ok=True)
     seed_everything(2023)
 
     motion_dir = args.motion_dir
+    fps = args.fps
     mean = np.load(pjoin(motion_dir, 'Mean.npy'))
     std = np.load(pjoin(motion_dir, 'Std.npy'))
 
@@ -135,11 +145,16 @@ if __name__ == "__main__":
         motion_name = motion_data_list[count]
         motion = np.load(pjoin(motion_dir, 'test', 'joint_vecs', motion_name + '.npy'))
 
-        # if motion_name in aist:
-        #     motion = motion[::3]
+        if motion_name in aist and fps == 20:
+            motion = motion[::3]
+        if motion_name not in aist and fps == 60:
+            motion = torch.Tensor(motion)
+            motion = rearrange(motion, 't d -> d t')
+            motion = torch.nn.functional.interpolate(motion[None, ...], scale_factor=3, mode='linear')
+            motion = rearrange(motion[0], 'd t -> t d').numpy()
 
         motion_length = motion.shape[0]
-        segment_length = 200
+        segment_length = fps * 10
         num_segment = motion_length // segment_length + 1
 
         music_name = random.choice(music_data_list)
@@ -194,7 +209,7 @@ if __name__ == "__main__":
             loss += curr_loss
             loss_each_sample.append(curr_loss.item())
 
-        if count % 30 == 0:
+        if count % 20 == 0:
             joint = motion_vec_to_joint(motion_recon, mean, std)
             gt_joint = motion_vec_to_joint(motion, mean, std)
 
@@ -204,14 +219,14 @@ if __name__ == "__main__":
             motion_save_path = pjoin(args.save_dir, motion_filename)
             skel_animation.plot_3d_motion(
                 motion_save_path, kinematic_chain, joint[0], title='None', vbeat=None,
-                fps=20, radius=4
+                fps=fps, radius=4
             )
 
             gt_motion_filename = f'{count}_motion_gt.mp4'
             motion_save_path = pjoin(args.save_dir, gt_motion_filename)
             skel_animation.plot_3d_motion(
                 motion_save_path, kinematic_chain, gt_joint[0], title='None', vbeat=None,
-                fps=20, radius=4
+                fps=fps, radius=4
             )
 
             music_filename = f'{count}_music_recon.wav'
